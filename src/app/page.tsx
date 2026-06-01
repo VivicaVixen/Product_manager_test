@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import type {
@@ -10,6 +10,7 @@ import type {
   HitlDecisionC7,
   CarrierId,
 } from '@/lib/types';
+import { GLOSARIO, type ClaseKey, type EstadoKey } from '@/lib/glosario_estados';
 
 // ============================================================================
 // Types
@@ -132,29 +133,38 @@ export default function Dashboard() {
       (c) => c.clase === 'discrepancia' || c.needs_hitl
     );
     const anomaliasActivas = anomalias.filter((a) => a.flag);
-    const prompt = `Datos de conciliación COD de esta semana para el resumen del vendedor:
+    // C1: Prompt orientado a insight para vendedor, no resumen de tabla
+    const discByCarrier = new Map<string, number>();
+    for (const d of discrepancias) discByCarrier.set(d.carrier, (discByCarrier.get(d.carrier) ?? 0) + 1);
+    const carrierRanking = [...discByCarrier.entries()].sort((a, b) => b[1] - a[1]);
+    const top = carrierRanking[0];
+    const topPct = top ? ((top[1] / (discrepancias.length || 1)) * 100).toFixed(0) : '0';
+    const otros = carrierRanking.slice(1).map(([c, n]) => `${displayCarrier(c)} (${n})`).join(', ');
 
-VOLUMEN Y AUTOMATIZACIÓN:
+    // Top 3 cobros por monto para acción concreta
+    const top3Cobros = discrepancias
+      .filter((d) => d.monto_esperado)
+      .sort((a, b) => (b.monto_esperado ?? 0) - (a.monto_esperado ?? 0))
+      .slice(0, 3);
+
+    const prompt = `Resumen COD para el vendedor Andrés esta semana:
+
+¿CUÁNTO LE DEBEN Y QUÉ ESTÁ EN RIESGO?
 - Total en juego: $${((metrics.total_confirmado_cop + metrics.total_pendiente_cop) / 1_000_000).toFixed(1)}M COP
-- Resuelto automáticamente: ${(metrics.tasa_conciliacion_automatica * 100).toFixed(0)}% (equivale a ~${((metrics.tasa_conciliacion_automatica * state.orders.length * 3) / 60).toFixed(1)} horas ahorradas vs. hacerlo en Excel)
-- Confirmado: $${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M | Pendiente de pago: $${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M
+- Confirmado y cobrado: $${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M
+- Pendiente de acreditación: $${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M
+- Envíos que no cuadran: ${discrepancias.length}
 
-INCIDENCIAS POR TRANSPORTADORA:
-- Total de envíos a revisar: ${discrepancias.length}
-${(() => {
-  const discByCarrier = new Map<string, number>();
-  for (const d of discrepancias) discByCarrier.set(d.carrier, (discByCarrier.get(d.carrier) ?? 0) + 1);
-  const carrierRanking = [...discByCarrier.entries()].sort((a, b) => b[1] - a[1]);
-  const top = carrierRanking[0];
-  if (!top) return '- Sin incidencias significativas';
-  const topPct = ((top[1] / discrepancias.length) * 100).toFixed(0);
-  const otros = carrierRanking.slice(1).map(([c, n]) => `${displayCarrier(c)} (${n})`).join(', ');
-  return `- ${displayCarrier(top[0])} concentra el ${topPct}% de las incidencias (${top[1]} casos)\n- Otras transportadoras con incidencias: ${otros || 'ninguna'}`;
-})()}
+¿QUÉ TRANSPORTADORA LE ESTÁ COSTANDO PLATA?
+${top ? `- ${displayCarrier(top[0])} concentra el ${topPct}% de los problemas (${top[1]} envíos, el mayor riesgo de caja)` : '- Sin incidencias significativas'}
+${otros ? `- Otras con incidencias: ${otros}` : ''}
 
-ALERTAS DETECTADAS: ${anomaliasActivas.length} posibles cobros incorrectos marcados por el sistema.
+TOP COBROS PENDIENTES (para acción inmediata):
+${top3Cobros.map((d) => `- ${d.guia} (${displayCarrier(d.carrier)}): $${d.monto_esperado?.toLocaleString('es-CO')} COP`).join('\n') || '- Sin cobros destacados'}
 
-Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos anteriores. Incluye: estado general, análisis de la transportadora con más incidencias y qué acción concreta tomar esta semana.`;
+ALERTAS: ${anomaliasActivas.length} posibles cobros incorrectos detectados.
+
+Redacta 2-3 bloques cortos respondiendo: (1) ¿cuánto le deben y cuánto está en riesgo?, (2) ¿qué transportadora le está costando plata y por qué le importa?, (3) ¿qué decide esta semana? (1 acción concreta con guía y monto). Máximo 4 oraciones. Sin tecnicismos.`;
 
     fetch('/api/ai', {
       method: 'POST',
@@ -209,7 +219,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
     const res = await fetch('/api/pipeline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ hitlRecords: updatedRecords }),
+      body: JSON.stringify({ hitlRecords: updatedRecords, persona: personaActiva }),
     });
     const data: PipelineResponse = await res.json();
     if (data.success && data.state) {
@@ -580,7 +590,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
 }
 
 // ============================================================================
-// AI Summary Generator — Fallback determinista (sin texto "Fallback" en UI)
+// AI Summary Generator — Fallback determinista alineado con insight (C1.5)
 // ============================================================================
 
 function generateAISummary(
@@ -590,8 +600,7 @@ function generateAISummary(
 ): string {
   const totalCOP = metrics.total_confirmado_cop + metrics.total_pendiente_cop;
   const totalM = (totalCOP / 1_000_000).toFixed(1);
-  const autoRate = (metrics.tasa_conciliacion_automatica * 100).toFixed(0);
-  const recall = (metrics.recall_anomalias * 100).toFixed(0);
+  const pendienteM = (metrics.total_pendiente_cop / 1_000_000).toFixed(1);
 
   const discByCarrier = new Map<string, number>();
   for (const d of discrepancias) {
@@ -599,56 +608,34 @@ function generateAISummary(
   }
   const topCarrier = [...discByCarrier.entries()].sort((a, b) => b[1] - a[1])[0];
 
-  const anomByReason = new Map<string, number>();
-  for (const a of anomaliasActivas) {
-    anomByReason.set(a.razon, (anomByReason.get(a.razon) ?? 0) + 1);
-  }
-
   const parts: string[] = [];
 
+  // Bloque 1: Cuánto le deben
   parts.push(
-    `Esta semana se procesaron ${totalM} millones de pesos en conciliación COD.`
+    `Esta semana tienes $${totalM}M en cobros COD. De esos, $${pendienteM}M están pendientes de acreditación.`
   );
 
-  if (metrics.tasa_conciliacion_automatica >= 0.7) {
+  // Bloque 2: Qué transportadora cuesta plata
+  if (topCarrier) {
     parts.push(
-      `El sistema concilió automáticamente el ${autoRate}% de las transacciones, ` +
-      `liberando aproximadamente ${Math.round((totalCOP / 1_000_000) * 0.07)} horas de trabajo manual.`
-    );
-  } else {
-    parts.push(
-      `La tasa de auto-conciliación fue del ${autoRate}%, por debajo del target del 80%. ` +
-      `Se recomienda revisar los formatos de las transportadoras con mayor tasa de discrepancias.`
+      `⚠️ ${displayCarrier(topCarrier[0])} concentra la mayor parte de los envíos pendientes (${topCarrier[1]} casos) — es donde está tu riesgo de caja.`
     );
   }
 
-  if (discrepancias.length > 0) {
+  // Bloque 3: Acción concreta
+  const top3 = discrepancias
+    .filter((d) => d.monto_esperado)
+    .sort((a, b) => (b.monto_esperado ?? 0) - (a.monto_esperado ?? 0))
+    .slice(0, 2);
+  if (top3.length > 0) {
     parts.push(
-      `Se detectaron ${discrepancias.length} envíos pendientes de revisión.`
+      `Tu jugada: revisa los cobros de ${top3[0].guia} (${displayCarrier(top3[0].carrier)}) y ${top3.length > 1 ? top3[1].guia + ' (' + displayCarrier(top3[1].carrier) + ')' : 'los siguientes en la lista'} — ahí está la mayor plata en juego.`
     );
-    if (topCarrier) {
-      parts.push(
-        `La transportadora con más incidencias es ${topCarrier[0]} con ${topCarrier[1]} casos.`
-      );
-    }
-  } else {
-    parts.push(`No hay envíos pendientes — excelente semana.`);
+  } else if (discrepancias.length > 0) {
+    parts.push(`Revisa los ${discrepancias.length} envíos pendientes en la pestaña "Mis envíos".`);
   }
 
-  if (anomaliasActivas.length > 0) {
-    const topReason = [...anomByReason.entries()].sort((a, b) => b[1] - a[1])[0];
-    parts.push(
-      `Se detectaron ${anomaliasActivas.length} alertas de posible cobro incorrecto ` +
-      `(precisión: ${recall}%), predominantemente por ${topReason ? topReason[0].replace('_', ' ') : 'umbral excedido'}.`
-    );
-  }
-
-  if (metrics.filas_aisladas > 0) {
-    parts.push(
-      `⚠️ Hay ${metrics.filas_aisladas} registros con formato no reconocido que requieren revisión del equipo de operaciones.`
-    );
-  }
-
+  // C1.4: Sin recomendaciones de Ops (se eliminó el bloque de formatos no reconocidos)
   return parts.join(' ');
 }
 
@@ -803,6 +790,47 @@ function StatCard({
       </p>
       <p className="text-xs text-gray-500">Target: {target}</p>
     </div>
+  );
+}
+
+// ============================================================================
+// C2: TooltipBadge reutilizable para badges de clase y estado
+// ============================================================================
+
+function TooltipBadge({
+  label,
+  color,
+  tipo,
+  clave,
+}: {
+  label: string;
+  color: string;
+  tipo: 'clase' | 'estado';
+  clave: ClaseKey | EstadoKey;
+}) {
+  const [show, setShow] = useState(false);
+  const info = tipo === 'clase'
+    ? GLOSARIO.clase[clave as ClaseKey]
+    : GLOSARIO.estado[clave as EstadoKey];
+
+  return (
+    <span
+      className={`relative inline-block ${color}`}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      {label}
+      {show && info && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 bg-gray-900 text-white text-xs rounded-lg p-2 z-50 leading-relaxed shadow-lg">
+          <p className="font-semibold mb-1">{info.titulo}</p>
+          <p className="text-gray-200">{info.detalle}</p>
+          <p className="text-gray-300 mt-1 italic">{info.accion}</p>
+          <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+            <div className="border-4 border-transparent border-t-gray-900" />
+          </div>
+        </div>
+      )}
+    </span>
   );
 }
 
@@ -1070,17 +1098,19 @@ function DiscrepancyTable({
                     )}
                   </td>
                   <td className="px-3 py-2">
-                    <span
-                      className={`px-2 py-0.5 rounded text-xs font-medium ${
+                    {/* C2: Tooltip para clase */}
+                    <TooltipBadge
+                      label={d.clase === 'pendiente_acreditacion' ? 'Pendiente' : d.clase}
+                      color={`px-2 py-0.5 rounded text-xs font-medium ${
                         d.clase === 'cobrado'
                           ? 'bg-green-100 text-green-800'
                           : d.clase === 'pendiente_acreditacion'
                             ? 'bg-yellow-100 text-yellow-800'
                             : 'bg-red-100 text-red-800'
                       }`}
-                    >
-                      {d.clase}
-                    </span>
+                      tipo="clase"
+                      clave={d.clase as ClaseKey}
+                    />
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {anomalia ? (
@@ -1092,10 +1122,21 @@ function DiscrepancyTable({
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs">
+                    {/* C2: Tooltip para estado */}
                     {resuelto ? (
-                      <span className="text-green-600">✅ {resuelto}</span>
+                      <TooltipBadge
+                        label={`✅ ${resuelto}`}
+                        color="text-green-600"
+                        tipo="estado"
+                        clave="resuelto"
+                      />
                     ) : d.needs_hitl ? (
-                      <span className="text-orange-600">Pendiente</span>
+                      <TooltipBadge
+                        label="Pendiente"
+                        color="text-orange-600"
+                        tipo="estado"
+                        clave="pendiente"
+                      />
                     ) : (
                       <span className="text-gray-400">Auto</span>
                     )}
@@ -1491,24 +1532,25 @@ function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] })
         : prev
     );
 
-    const prompt = `Análisis de flujo de caja COD para vendedor colombiano. Total pendiente de remesa: $${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M COP.
+    // C1: Prompt orientado a insight para vendedor
+    const prompt = `Análisis de flujo de caja COD para el vendedor Andrés esta semana. Total pendiente de remesa: $${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M COP.
 
-SITUACIÓN POR TRANSPORTADORA (de mayor a menor monto pendiente):
+SITUACIÓN POR TRANSPORTADORA:
 ${ordenados
   .map((c) => {
     const atraso = c.lagMedianoActual - c.lagMedianoHistorico;
     const atrasoTexto =
       atraso > 0
-        ? `${atraso} días MÁS lento que su propio patrón`
-        : `dentro de su patrón histórico`;
-    return `- ${displayCarrier(c.carrier)}: $${(c.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes en ${c.ordenesPendientes} órdenes. Paga normalmente en ${c.lagMedianoHistorico} días, ahora lleva ${c.lagMedianoActual} días → ${atrasoTexto}. Semáforo: ${c.semafaro}.`;
+        ? `${atraso} días MÁS lento de lo normal`
+        : `dentro de su patrón`;
+    return `- ${displayCarrier(c.carrier)}: $${(c.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes en ${c.ordenesPendientes} órdenes. → ${atrasoTexto}. Semáforo: ${c.semafaro}.`;
   })
   .join('\n')}
 
-LA QUE MÁS PREOCUPA: ${displayCarrier(masProblematico.carrier)} — lleva ${masProblematico.lagMedianoActual - masProblematico.lagMedianoHistorico} días de retraso sobre su patrón histórico con $${(masProblematico.totalPorCobrarCOP / 1_000_000).toFixed(1)}M en juego.
-LA MÁS CONFIABLE ESTA SEMANA: ${displayCarrier(masConfiable.carrier)} — su comportamiento es el más cercano a su patrón histórico.
+LA QUE MÁS PREOCUPA: ${displayCarrier(masProblematico.carrier)} — lleva ${masProblematico.lagMedianoActual - masProblematico.lagMedianoHistorico} días de retraso con $${(masProblematico.totalPorCobrarCOP / 1_000_000).toFixed(1)}M en juego.
+LA MÁS CONFIABLE: ${displayCarrier(masConfiable.carrier)}.
 
-Redacta un análisis en formato multi-bloque (3 bloques) con: (1) estado general del flujo de caja, (2) análisis de la transportadora que más preocupa esta semana y por qué, (3) recomendación concreta y accionable para esta semana (a quién llamar, qué revisar). Sé directo y específico con montos.`;
+Redacta 3 bloques cortos: (1) ¿cuándo entra la plata?, (2) ¿qué carrier la está frenando y por qué importa?, (3) ¿qué hacer esta semana? (1 acción concreta: a quién llamar, qué monto revisar). Máximo 4 oraciones. Sin tecnicismos. Audiencia = vendedor.`;
 
     fetch('/api/ai', {
       method: 'POST',

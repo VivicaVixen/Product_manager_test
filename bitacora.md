@@ -44,6 +44,11 @@
 - **B12: Reporte PDF profesional** — Botón "Exportar" ahora genera informe A4 en ventana nueva con template Faro: header con marca, KPIs en grid, tabla de envíos pendientes con badges, estado de transportadoras con semáforo, footer legal. Auto-ejecuta `window.print()` al cargar.
 - **O3: Click-outside persona** — Dropdown de persona se cierra al hacer clic fuera (usando `useRef` + `mousedown` listener).
 
+### Commit correctivo (roadmap_correctivo_v4.md) — C1+C2+C3
+- **C1 (P1): IA sin insight accionable** — System prompt reescrito para prohibir jerga interna (umbral, outlier, z-score, normalización, discrepancia como término técnico) y acciones de Operaciones. Prompt del resumen semanal ahora pregunta 3 cosas al vendedor: ¿cuánto le deben?, ¿qué transportadora le cuesta plata?, ¿qué decide hoy? Prompt del pronóstico de caja también reescrito con el mismo principio. Fallback determinista (`generateAISummary`) actualizado para seguir formato insight (bloques cortos, acción concreta, sin Ops).
+- **C2 (P2): Tooltips estado/clase** — Nuevo archivo `src/lib/glosario_estados.ts` con diccionario de estados y clases (título + detalle + acción sugerida). Componente `TooltipBadge` reutilizable aplicado a badges de `clase` y `estado` en tabla "Mis envíos". Hover muestra explicación completa.
+- **C3 (P2): Consecuencia en opciones HITL** — Cada botón del modal HITL ahora tiene microcopy explicativo debajo: "Cerrar como cobrado" → "Aceptas que el monto está correcto. El envío suma a tu total confirmado." etc. Aplicado tanto a C2 (conciliación) como C7 (anomalías). Botones ahora son `w-full` (ancho completo) con texto `text-left` para mejor legibilidad.
+
 ---
 
 ## Sección 1 · Prototipo Funcionando

@@ -26,13 +26,14 @@ import { runCashForecast, type CashForecast } from './cash_forecast';
  */
 export function runPipeline(
   bundles: BundleInput[],
-  prevHitl: HitlRecord[] = []
+  prevHitl: HitlRecord[] = [],
+  scale: number = 1
 ): AppState {
   const timestamp = new Date().toISOString();
 
   // Consolidar datos
-  const orders: Orden[] = [];
-  const groundTruth: GroundTruth[] = [];
+  let orders: Orden[] = [];
+  let groundTruth: GroundTruth[] = [];
   const c1Alerts: C1Alert[] = [];
 
   for (const bundle of bundles) {
@@ -42,13 +43,35 @@ export function runPipeline(
   }
 
   // C1: Normalizar todos los carrier_raw
-  const allGuias: GuiaNormalizada[] = [];
+  let allGuias: GuiaNormalizada[] = [];
   const allNovedadesTextoLibre: { guia: string; texto: string; linea: number }[] = [];
 
   for (const bundle of bundles) {
     const c1Result = runC1(bundle.carrier_raw, timestamp);
     allGuias.push(...c1Result.guias);
     allNovedadesTextoLibre.push(...c1Result.novedadesTextoLibre);
+  }
+
+  // ==========================================================================
+  // FIX C4: Escalado por persona CONSISTENTE.
+  // Antes, applyPersona() escalaba solo orders.monto_esperado_cod y NO el
+  // monto de carrier_raw (guias) → la diferencia C2 se disparaba, todo caía a
+  // discrepancia/pendiente, 'cobrado' colapsaba y el total confirmado se iba a 0.
+  // Aquí escalamos AMBOS lados (órdenes + guías + ground truth) por el mismo
+  // factor, sobre CLONES (los bundles importados son módulo-compartido; mutar
+  // in-place doble-escalaría entre requests serverless). scale=1 (Andrés) deja
+  // todo idéntico — no toca lo que ya funciona.
+  // ==========================================================================
+  if (scale !== 1) {
+    const sc = (v: number | null): number | null =>
+      v === null || v === undefined ? v : Math.round(v * scale);
+    orders = orders.map((o) => ({ ...o, monto_esperado_cod: Math.round(o.monto_esperado_cod * scale) }));
+    groundTruth = groundTruth.map((gt) => ({
+      ...gt,
+      monto_esperado: sc(gt.monto_esperado),
+      monto_real: sc(gt.monto_real),
+    }));
+    allGuias = allGuias.map((g) => ({ ...g, monto: sc(g.monto) }));
   }
 
   const tasaNormalizacion = allGuias.length > 0
