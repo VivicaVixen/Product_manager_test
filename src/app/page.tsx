@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import type {
   AppState,
   ConciliacionResultado,
@@ -76,6 +76,7 @@ export default function Dashboard() {
   const [modoEvaluador, setModoEvaluador] = useState(false);
   const [personaActiva, setPersonaActiva] = useState<PersonaId>('andres');
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  const personaMenuRef = useRef<HTMLDivElement>(null);
   const persona = PERSONAS.find((p) => p.id === personaActiva)!;
   const [hitlModal, setHitlModal] = useState<{
     guia: string;
@@ -110,6 +111,18 @@ export default function Dashboard() {
   useEffect(() => {
     loadPipeline();
   }, [loadPipeline]);
+
+  // O3: Cerrar dropdown persona al hacer clic fuera
+  useEffect(() => {
+    if (!personaMenuOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (personaMenuRef.current && !personaMenuRef.current.contains(e.target as Node)) {
+        setPersonaMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [personaMenuOpen]);
 
   // E2: Groq AI summary fetch at Dashboard level
   useEffect(() => {
@@ -211,12 +224,12 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
 
   if (loading) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <main className="min-h-screen bg-embarca-surface flex items-center justify-center">
         <div className="text-center">
-          {/* O3: Spinner con estilo Embarca */}
+          {/* O3: Spinner con estilo Faro (verde) */}
           <div className="relative mx-auto mb-6" style={{ width: 80, height: 80 }}>
             <div className="absolute inset-0 rounded-full border-4 border-embarca-50/60" />
-            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-embarca-500 animate-spin" />
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-embarca-DEFAULT animate-spin" />
             <div className="absolute inset-0 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/logo.svg" alt="embarca" className="h-6 w-auto opacity-80" />
@@ -230,7 +243,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
 
   if (error) {
     return (
-      <main className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <main className="min-h-screen bg-embarca-surface flex items-center justify-center">
         <div className="text-center bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
           <p className="text-red-800 font-semibold mb-2">Error</p>
           <p className="text-red-600 text-sm">{error}</p>
@@ -268,7 +281,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
   ];
 
   return (
-    <main className="min-h-screen bg-gray-50">
+    <main className="min-h-screen bg-embarca-surface">
       {/* Block 5: Header rediseñado con logo Embarca */}
       <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
@@ -277,18 +290,18 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.svg" alt="embarca" className="h-8 w-auto" />
             <div className="hidden sm:block">
-              <p className="text-xs text-gray-400 leading-none mt-0.5">Conciliador Inteligente</p>
+              <p className="text-xs text-embarca-muted leading-none mt-0.5">claridad total sobre tu caja COD</p>
             </div>
           </div>
 
-          {/* B8: Persona switcher */}
+          {/* B8: Persona switcher + O3: click-outside */}
           <div className="flex items-center gap-2">
-            <div className="relative hidden md:block">
+            <div ref={personaMenuRef} className="relative hidden md:block">
               <button
                 onClick={() => setPersonaMenuOpen((v) => !v)}
                 className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
               >
-                <div className="w-7 h-7 rounded-full bg-embarca-50 flex items-center justify-center text-embarca-500 font-bold text-xs">
+                <div className="w-7 h-7 rounded-full bg-embarca-light flex items-center justify-center text-embarca-DEFAULT font-bold text-xs">
                   {persona.iniciales}
                 </div>
                 <div className="text-left">
@@ -312,10 +325,10 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
                         loadPipeline(p.id);
                       }}
                       className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
-                        p.id === personaActiva ? 'bg-embarca-50' : ''
+                        p.id === personaActiva ? 'bg-embarca-light' : ''
                       }`}
                     >
-                      <div className="w-8 h-8 rounded-full bg-embarca-50 flex items-center justify-center text-embarca-500 font-bold text-xs flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full bg-embarca-light flex items-center justify-center text-embarca-DEFAULT font-bold text-xs flex-shrink-0">
                         {p.iniciales}
                       </div>
                       <div>
@@ -323,7 +336,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
                         <p className="text-xs text-gray-400">{p.rol}</p>
                       </div>
                       {p.id === personaActiva && (
-                        <span className="ml-auto text-embarca-500 text-xs">✓</span>
+                        <span className="ml-auto text-embarca-DEFAULT text-xs">✓</span>
                       )}
                     </button>
                   ))}
@@ -339,8 +352,8 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
               🔄
             </button>
             <button
-              onClick={() => window.print()}
-              className="px-3 py-1.5 text-sm bg-embarca-50 border border-embarca-500/30 text-embarca-500 rounded-lg hover:bg-embarca-light transition-colors print:hidden"
+              onClick={() => state && generarReportePDF(state, persona)}
+              className="px-3 py-1.5 text-sm bg-embarca-light border border-embarca-DEFAULT/30 text-embarca-dark rounded-lg hover:bg-embarca-light/80 transition-colors print:hidden"
             >
               📄 Exportar
             </button>
@@ -369,18 +382,18 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
       {/* F3: Alertas C1 — mensaje amigable siempre, detalles solo evaluador */}
       {c1Alerts.length > 0 && (
         <div className="max-w-7xl mx-auto px-6 pt-4">
-          <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
-            <p className="text-sm text-orange-800 font-medium">
+          <div className="bg-embarca-gold-light border border-embarca-gold/20 rounded-lg p-3">
+            <p className="text-sm text-embarca-gold font-medium">
               ⚠️ {c1Alerts.length} envío{c1Alerts.length > 1 ? 's' : ''} con transportadora no reconocida — están siendo revisados por el equipo de operaciones.
             </p>
             {/* Detalle técnico SOLO en modo evaluador */}
             {modoEvaluador && (
               <details className="mt-1">
-                <summary className="text-xs text-orange-600 cursor-pointer">Ver detalles técnicos (vista evaluador)</summary>
-                <ul className="mt-1 text-xs text-orange-700 space-y-1 font-mono">
+                <summary className="text-xs text-embarca-gold cursor-pointer">Ver detalles técnicos (vista evaluador)</summary>
+                <ul className="mt-1 text-xs text-embarca-gold space-y-1 font-mono">
                   {c1Alerts.map((a, i) => (
                     <li key={i}>
-                      <code className="bg-orange-100 px-1 rounded">{a.guia_o_linea}</code> — {a.razon}
+                      <code className="bg-embarca-gold-light/60 px-1 rounded">{a.guia_o_linea}</code> — {a.razon}
                     </li>
                   ))}
                 </ul>
@@ -399,8 +412,8 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
               onClick={() => setActiveTab(tab.key)}
               className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${
                 activeTab === tab.key
-                  ? 'border-embarca-500 text-embarca-500'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                  ? 'border-embarca-DEFAULT text-embarca-DEFAULT'
+                  : 'border-transparent text-embarca-muted hover:text-embarca-text hover:border-embarca-muted'
               }`}
             >
               {tab.label}
@@ -414,10 +427,10 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
         {activeTab === 'resumen' && state && (
           <div className="space-y-5">
             {/* E2: 1. Resumen IA — PRIMERO (hero moment) */}
-            <div className="bg-embarca-light border border-embarca-500/20 rounded-xl p-5">
+            <div className="bg-embarca-light border border-embarca-DEFAULT/20 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">✨</span>
-                <h2 className="text-base font-semibold text-embarca-dark">Tu semana en Embarca</h2>
+                <h2 className="text-base font-semibold text-embarca-dark">Tu semana en faro</h2>
                 {aiLoading && (
                   <span className="text-xs text-embarca-500 animate-pulse ml-2">Analizando...</span>
                 )}
@@ -442,21 +455,21 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
               );
               if (pendientes.length === 0) return null;
               return (
-                <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
+                <div className="flex items-center justify-between bg-embarca-gold-light border border-embarca-gold/20 rounded-xl px-5 py-3">
                   <div className="flex items-center gap-3">
                     <span className="text-xl">⚡</span>
                     <div>
-                      <p className="text-sm font-semibold text-amber-800">
+                      <p className="text-sm font-semibold text-embarca-gold">
                         {pendientes.length} envío{pendientes.length > 1 ? 's' : ''} requieren tu decisión
                       </p>
-                      <p className="text-xs text-amber-600 mt-0.5">
+                      <p className="text-xs text-embarca-gold mt-0.5">
                         Tiempo estimado: ~{pendientes.length * 2} minutos
                       </p>
                     </div>
                   </div>
                   <button
                     onClick={() => setActiveTab('discrepancias')}
-                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+                    className="px-4 py-2 bg-embarca-gold hover:bg-embarca-dark text-white text-sm font-medium rounded-lg transition-colors"
                   >
                     Revisar ahora →
                   </button>
@@ -465,7 +478,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
             })()}
 
             {/* E1: 3. North star — horas ahorradas */}
-            <div className="flex items-center gap-3 bg-embarca-light border border-embarca-500/20 rounded-xl px-5 py-3">
+            <div className="flex items-center gap-3 bg-embarca-light border border-embarca-DEFAULT/20 rounded-xl px-5 py-3">
               <span className="text-2xl">⏱️</span>
               <div>
                 <p className="text-sm font-semibold text-embarca-dark">
@@ -502,7 +515,7 @@ Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos a
               <KPICard
                 label="Alertas detectadas"
                 value={anomaliasActivas.length.toString()}
-                color="bg-embarca-50 border-embarca-500/20 text-embarca-700"
+                color="bg-embarca-blue-light border-embarca-blue/20 text-embarca-blue"
                 tooltip="Posibles cobros incorrectos detectados automáticamente por el sistema"
               />
             </div>
@@ -1092,7 +1105,7 @@ function DiscrepancyTable({
                       {d.needs_hitl && !resuelto && (
                         <button
                           onClick={() => onHitl(d.guia, d.carrier, 'c2', d)}
-                          className="px-2 py-1 text-xs bg-blue-600 text-white rounded hover:bg-blue-700"
+                          className="px-2 py-1 text-xs bg-embarca-DEFAULT text-white rounded hover:bg-embarca-dark"
                         >
                           Decidir
                         </button>
@@ -1168,11 +1181,11 @@ Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las t
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const aiBlock = aiLoading ? (
-    <p className="text-xs text-blue-400 italic mb-4">💬 El sistema está analizando esta guía...</p>
+    <p className="text-xs text-embarca-muted italic mb-4">💬 El sistema está analizando esta guía...</p>
   ) : aiExplanation ? (
-    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-      <p className="text-xs font-medium text-blue-700 mb-1">💬 Análisis del sistema</p>
-      <p className="text-sm text-blue-800">{aiExplanation}</p>
+    <div className="bg-embarca-light border border-embarca-DEFAULT/20 rounded-lg p-3 mb-4">
+      <p className="text-xs font-medium text-embarca-dark mb-1">💬 Análisis del sistema</p>
+      <p className="text-sm text-embarca-dark">{aiExplanation}</p>
     </div>
   ) : null;
   if (tipo === 'c2') {
@@ -1268,7 +1281,7 @@ Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las t
         </button>
         <button
           onClick={() => onConfirm('reclamar')}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+          className="px-4 py-2 bg-embarca-DEFAULT text-white rounded hover:bg-embarca-dark text-sm"
         >
           📢 Reclamar a transportadora
         </button>
@@ -1384,9 +1397,9 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
       <h2 className="text-lg font-semibold text-gray-900">Panel de Métricas</h2>
 
       {/* Block 4: nota evaluador */}
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
-        <p className="text-xs text-purple-700 font-medium">🔬 Vista Evaluador — Panel interno de métricas</p>
-        <p className="text-xs text-purple-600 mt-1">
+      <div className="bg-embarca-light border border-embarca-DEFAULT/20 rounded-lg p-3 mb-4">
+        <p className="text-xs text-embarca-dark font-medium">🔬 Vista Evaluador — Panel interno de métricas</p>
+        <p className="text-xs text-embarca-dark mt-1">
           &quot;Si esto estuviera en producción mediría X; en el prototipo mido Y (proxy) contra el ground truth del dataset sintético.&quot;
         </p>
       </div>
@@ -1536,14 +1549,14 @@ Redacta un análisis en formato multi-bloque (3 bloques) con: (1) estado general
       </p>
 
       {/* F5: AI Narrative con Groq — B10: multi-bloque */}
-      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-indigo-800 mb-2">💡 Recomendación para esta semana</h3>
+      <div className="bg-embarca-light border border-embarca-DEFAULT/20 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-embarca-dark mb-2">💡 Recomendación para esta semana</h3>
         {forecastAiLoading ? (
-          <p className="text-sm text-indigo-400 italic">Generando recomendación...</p>
+          <p className="text-sm text-embarca-muted italic">Generando recomendación...</p>
         ) : (
           <div>
             {forecastAiText?.split('\n\n').filter(Boolean).map((bloque, i) => (
-              <p key={i} className="text-sm text-indigo-700 leading-relaxed mt-2 first:mt-0">
+              <p key={i} className="text-sm text-embarca-dark leading-relaxed mt-2 first:mt-0">
                 {bloque}
               </p>
             ))}
@@ -1606,4 +1619,69 @@ Redacta un análisis en formato multi-bloque (3 bloques) con: (1) estado general
       </div>
     </div>
   );
+}
+
+// ============================================================================
+// B12: Reporte PDF imprimible con template Faro
+// ============================================================================
+
+function generarReportePDF(state: AppState, persona: { nombre: string; rol: string }) {
+  const discPendientes = state.conciliaciones
+    .filter((c) => c.needs_hitl && !state.hitlRecords.find((r) => r.guia === c.guia && r.decision))
+    .slice(0, 25);
+
+  const semColor: Record<string, string> = { verde: '#059669', amarillo: '#D97706', rojo: '#DC2626' };
+  const horasAhorradas = ((state.metrics.tasa_conciliacion_automatica * state.orders.length * 3) / 60).toFixed(1);
+  const semanaLabel = new Date().toLocaleDateString('es-CO', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+
+  const html = `<!DOCTYPE html>
+<html lang="es"><head><meta charset="UTF-8"/><title>Informe Faro — ${persona.nombre}</title>
+<style>
+@page{size:A4;margin:1.5cm}*{margin:0;padding:0;box-sizing:border-box}body{font-family:Inter,system-ui,sans-serif;color:#111827;background:white;font-size:11px;line-height:1.5}
+.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:16px;border-bottom:2px solid #059669;margin-bottom:20px}
+.brand-name{font-size:20px;font-weight:700;color:#059669;letter-spacing:-.5px}.brand-sub{font-size:10px;color:#6B7280}
+.header-meta{text-align:right}.header-meta p{font-size:10px;color:#6B7280}.header-meta .vendedor{font-size:12px;font-weight:600;color:#111827;margin-bottom:2px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.kpi-card{border:1px solid #E5E7EB;border-radius:8px;padding:12px}.kpi-label{font-size:9px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#6B7280;margin-bottom:4px}
+.kpi-value{font-size:22px;font-weight:700;color:#111827}.kpi-sub{font-size:9px;color:#9CA3AF;margin-top:2px}
+.kpi-green .kpi-value{color:#059669}.kpi-gold .kpi-value{color:#D97706}.kpi-red .kpi-value{color:#DC2626}.kpi-blue .kpi-value{color:#1D4ED8}
+.section-title{font-size:12px;font-weight:700;color:#111827;margin-bottom:8px;border-bottom:1px solid #E5E7EB;padding-bottom:4px}
+table{width:100%;border-collapse:collapse;margin-bottom:18px;font-size:10px}thead tr{background:#F9FAFB}
+th{text-align:left;padding:6px 8px;font-weight:600;color:#374151;font-size:9px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid #E5E7EB}
+td{padding:6px 8px;border-bottom:1px solid #F3F4F6;color:#374151}tr:last-child td{border-bottom:none}
+.badge{display:inline-block;padding:1px 6px;border-radius:4px;font-size:9px;font-weight:600}
+.badge-red{background:#FEF2F2;color:#DC2626}.badge-yellow{background:#FFFBEB;color:#D97706}
+.num{text-align:right;font-variant-numeric:tabular-nums}
+.carriers-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:18px}
+.carrier-card{border:1px solid #E5E7EB;border-radius:8px;padding:12px}
+.carrier-name{font-size:11px;font-weight:600;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.carrier-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.carrier-stat{font-size:10px;color:#6B7280}.carrier-monto{font-size:14px;font-weight:700;margin:4px 0}.carrier-signal{font-size:9px;color:#9CA3AF}
+.footer{border-top:1px solid #E5E7EB;padding-top:10px;margin-top:4px;display:flex;justify-content:space-between;align-items:center}
+.footer-brand{font-size:10px;font-weight:600;color:#059669}.footer-legal{font-size:9px;color:#9CA3AF;max-width:320px;text-align:right}
+</style></head><body>
+<div class="header"><div><span class="brand-name">faro</span><span class="brand-sub">by embarca · Informe Semanal COD</span></div>
+<div class="header-meta"><p class="vendedor">${persona.nombre}</p><p>${persona.rol}</p><p>Generado el ${semanaLabel}</p></div></div>
+<div class="kpi-grid">
+<div class="kpi-card kpi-green"><div class="kpi-label">Total Confirmado</div><div class="kpi-value">$${(state.metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M</div><div class="kpi-sub">COP cobrado</div></div>
+<div class="kpi-card kpi-gold"><div class="kpi-label">Total Pendiente</div><div class="kpi-value">$${(state.metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M</div><div class="kpi-sub">COP por acreditar</div></div>
+<div class="kpi-card kpi-red"><div class="kpi-label">Envíos por revisar</div><div class="kpi-value">${discPendientes.length}</div><div class="kpi-sub">requieren tu decisión</div></div>
+<div class="kpi-card kpi-blue"><div class="kpi-label">Tiempo ahorrado</div><div class="kpi-value">~${horasAhorradas}h</div><div class="kpi-sub">vs conciliación manual</div></div>
+</div>
+<div class="section-title">Envíos que requieren tu atención (${discPendientes.length})</div>
+${discPendientes.length > 0
+    ? `<table><thead><tr><th>Guía</th><th>Carrier</th><th class="num">Esperado</th><th class="num">Reportado</th><th class="num">Diferencia</th><th>Estado</th></tr></thead><tbody>${discPendientes.map((d) => `<tr><td style="font-family:monospace;font-size:9px">${d.guia}</td><td>${d.carrier}</td><td class="num">${d.monto_esperado?.toLocaleString('es-CO') ?? '—'}</td><td class="num">${d.monto_reportado?.toLocaleString('es-CO') ?? '—'}</td><td class="num"><span style="color:${d.diferencia_pesos !== null && d.diferencia_pesos < 0 ? '#DC2626' : '#D97706'}">${d.diferencia_pesos !== null ? (d.diferencia_pesos > 0 ? '+' : '') + d.diferencia_pesos.toLocaleString('es-CO') : '—'}</span></td><td><span class="badge ${d.clase === 'discrepancia' ? 'badge-red' : 'badge-yellow'}">${d.clase}</span></td></tr>`).join('')}</tbody></table>`
+    : '<p style="color:#6B7280;font-size:11px;margin-bottom:18px">Sin envíos pendientes esta semana.</p>'}
+<div class="section-title">Estado de transportadoras</div>
+<div class="carriers-grid">
+${state.cashForecast?.carriers?.map((c) => `<div class="carrier-card"><div class="carrier-name"><span class="carrier-dot" style="background:${semColor[c.semafaro] ?? '#9CA3AF'}"></span>${c.carrier}</div><div class="carrier-monto">$${(c.totalPorCobrarCOP / 1_000_000).toFixed(2)}M</div><div class="carrier-stat">${c.ordenesPendientes} órdenes · Lag ${c.lagMedianoActual}d (hist. ${c.lagMedianoHistorico}d)</div><div class="carrier-signal">${c.senal}</div></div>`).join('') ?? '<p>Sin datos.</p>'}
+</div>
+<div class="footer"><span class="footer-brand">faro by embarca</span><span class="footer-legal">Informe generado automáticamente. No reemplaza revisión contable.</span></div>
+<script>window.onload=function(){window.print()}</script></body></html>`;
+
+  const ventana = window.open('', '_blank', 'width=900,height=700');
+  if (ventana) {
+    ventana.document.write(html);
+    ventana.document.close();
+  }
 }

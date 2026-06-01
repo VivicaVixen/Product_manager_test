@@ -1,9 +1,22 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" fill="none">
-  <!-- Ícono: caja de envío con flecha -->
-  <rect x="2" y="10" width="22" height="18" rx="2" fill="#1A56DB"/>
-  <path d="M2 16h22" stroke="white" stroke-width="1.5"/>
-  <path d="M13 10V4M13 4L10 7M13 4L16 7" stroke="#1A56DB" stroke-width="1.5" stroke-linecap="round"/>
-  <path d="M18 22l4 4m0 0l-4 4m4-4H14" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 40" fill="none">
+  <!-- Torre del faro -->
+  <rect x="9" y="19" width="6" height="13" rx="1" fill="#059669"/>
+  <rect x="7" y="14" width="10" height="6" rx="1" fill="#059669"/>
+  <rect x="10" y="10" width="4" height="5" rx="1" fill="#059669"/>
+  <!-- Rayos de luz -->
+  <path d="M12 9 L4 3" stroke="#059669" stroke-width="1.5" stroke-linecap="round" opacity="0.55"/>
+  <path d="M12 9 L20 3" stroke="#059669" stroke-width="1.5" stroke-linecap="round" opacity="0.55"/>
+  <path d="M12 9 L2 8" stroke="#059669" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+  <path d="M12 9 L22 8" stroke="#059669" stroke-width="1.5" stroke-linecap="round" opacity="0.35"/>
+  <!-- Base -->
+  <rect x="5" y="32" width="14" height="2" rx="1" fill="#059669" opacity="0.35"/>
   <!-- Wordmark -->
-  <text x="32" y="26" font-family="Inter, system-ui, sans-serif" font-size="18" font-weight="700" fill="#1A56DB" letter-spacing="-0.5">embarca</text>
+  <text x="30" y="26"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="18" font-weight="700"
+        fill="#111827" letter-spacing="-0.5">faro</text>
+  <text x="72" y="26"
+        font-family="Inter, system-ui, sans-serif"
+        font-size="11" font-weight="400"
+        fill="#6B7280">by embarca</text>
 </svg>

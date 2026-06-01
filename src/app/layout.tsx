@@ -9,8 +9,8 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: 'embarca — Conciliador Inteligente',
-  description: 'Concilia tus pagos contraentrega COD automáticamente. Sin Excel. Sin esperar al lunes.',
+  title: 'Faro by embarca',
+  description: 'Sabe cuánto te deben las transportadoras. Siempre.',
   icons: { icon: '/logo.svg' },
 };
 

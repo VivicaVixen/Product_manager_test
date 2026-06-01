@@ -9,12 +9,21 @@ module.exports = {
     extend: {
       colors: {
         embarca: {
-          DEFAULT: '#1A56DB',
-          dark: '#1E429F',
-          light: '#EBF5FF',
-          50: '#EBF5FF',
-          500: '#1A56DB',
-          700: '#1E429F',
+          DEFAULT:  '#059669',  // emerald — botones primarios, confirmado
+          dark:     '#047857',  // emerald dark — hover, estados active
+          light:    '#ECFDF5',  // emerald light — fondos sutiles, badges
+          blue:     '#1D4ED8',  // azul real — secundario, tabs activos, info
+          'blue-light': '#EFF6FF',
+          gold:     '#D97706',  // dorado — alertas COD, badges HITL pendiente
+          'gold-light': '#FFFBEB',
+          danger:   '#DC2626',  // rojo — discrepancias, alertas críticas
+          'danger-light': '#FEF2F2',
+          surface:  '#F8FAFC',  // fondo general
+          text:     '#111827',  // texto principal
+          muted:    '#6B7280',  // texto secundario
+          50:       '#ECFDF5',
+          500:      '#059669',
+          700:      '#047857',
         },
       },
       fontFamily: {
