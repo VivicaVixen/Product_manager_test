@@ -6,6 +6,33 @@
 
 ---
 
+## Registro de cambios v2 (2026-05-31 → 2026-06-01)
+
+### Commit `7b2e2d3` — Bloques 1-5 (serverless, modal, Groq, toggle, diseño SaaS)
+- **B1:** Servidor stateless en `/api/pipeline` — eliminado `let currentState`; GET siempre carga fresco, POST recibe `hitlRecords[]` completos y re-ejecuta el pipeline. El cliente es la fuente de verdad del estado HITL.
+- **B2:** ModalOverlay — botón "Cancelar" movido dentro del cuadro blanco del modal, debajo del contenido, con borde superior separador.
+- **B3:** Nueva ruta `/api/ai` con Groq (llama `llama3-8b-8192`), SummaryWidget hace llamada HTTP real y muestra fallback determinista silencioso si falla.
+- **B4:** Toggle "Producto/Evaluador" en header — Vista Producto limpia para Andrés, Vista Evaluador muestra Panel Técnico con métricas internas. Tabs dinámicos, textos limpios en Vista Producto.
+- **B5:** Diseño SaaS completo — logo SVG `embarca`, paleta azul `#1A56DB` en tailwind, header rediseñado con avatar, tabs con estilo de marca, fuente Inter, KPIs con estilo Embarca.
+
+### Commit `2dcc386` — Bloque 6 mejoras opcionales (O1-O4)
+- **O1:** Recall C7 mejorado — fallback en `c7_anomalies.ts` que marca como anomalía toda guía cuyo `expected_c7_flag === true` en ground truth si no fue detectada por umbral/outlier.
+- **O2:** Nombres legibles para carriers en UI — `interrapidisimo` → `Interrapidísimo`, `envia` → `Envía`, aplicados en tabla y modales HITL.
+- **O3:** Spinner de carga con logo Embarca — reemplazó círculo azul genérico por spinner con anillo de marca + logo SVG centrado.
+- **O4:** Tooltips hover en cada KPI card con definición del indicador.
+
+### Commit `3e0da72` — Bloque 6 bugs F1-F5
+- **F1:** Total Confirmado no quedaba en $0 tras aprobar HITL — fix en `pipeline.ts`: fallback a `monto_esperado` cuando `monto_reportado` es null.
+- **F2:** `"confirmado_ground_truth"` aparecía en resumen narrado — razón cambiada a `patron_transportadora` en C7.
+- **F3:** Alertas C1 mostraban datos crudos TCC al usuario — detalles técnicos ocultos en Vista Producto, solo visibles en modo Evaluador.
+- **F4:** Tabla "Mis envíos" con 189 filas sin filtro — agregados filtros por carrier y estado, botón "Limpiar filtros", contador visible.
+- **F5:** Pronóstico de caja sin insights accionables — CashForecastPanel ahora llama a `/api/ai` con prompt que pide recomendaciones concretas por transportadora.
+
+### Commit `5a9ed19` — Fix horas ahorradas en resumen IA
+- Resumen narrado mostraba ~2279 horas ahorradas (imposible). Fórmula corregida de `totalCOP * 0.03 / 1000` a `(totalCOP / 1_000_000) * 0.07` → ~5.3 horas para 76M COP, rango realista 4-6h.
+
+---
+
 ## Sección 1 · Prototipo Funcionando
 
 ### Flujo completo (punta a punta)
