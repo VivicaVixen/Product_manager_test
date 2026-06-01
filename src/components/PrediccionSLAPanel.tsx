@@ -18,9 +18,9 @@ const CARRIERS = ['interrapidisimo', 'coordinadora', 'servientrega', 'envia'];
 
 const SEMAFORO_ICON: Record<string, string> = { verde: '🟢', amarillo: '🟡', rojo: '🔴' };
 const SEMAFORO_BG: Record<string, string> = {
-  verde: 'bg-green-50 border-green-200',
-  amarillo: 'bg-yellow-50 border-yellow-200',
-  rojo: 'bg-red-50 border-red-200',
+  verde: 'bg-emerald-500/10 border-emerald-500/30',
+  amarillo: 'bg-amber-500/10 border-amber-500/30',
+  rojo: 'bg-red-500/10 border-red-500/30',
 };
 
 export default function PrediccionSLAPanel() {
@@ -79,14 +79,14 @@ export default function PrediccionSLAPanel() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-embarca-heading">
           🔮 Predicción de SLA / Lag de Pago
         </h2>
       </div>
 
       {/* M2.4: Disclaimer visible */}
-      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
-        <p className="text-xs text-amber-700">
+      <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-3">
+        <p className="text-xs text-amber-400">
           ⚠️ <strong>Simulación:</strong> Predicción sobre histórico simulado. Bandas de confianza reflejan incertidumbre.
           En producción requiere histórico real multi-temporada.
         </p>
@@ -94,11 +94,11 @@ export default function PrediccionSLAPanel() {
 
       {/* Selector carrier */}
       <div className="flex gap-2 items-center">
-        <label className="text-sm text-gray-600">Filtrar carrier:</label>
+        <label className="text-sm text-embarca-text">Filtrar carrier:</label>
         <select
           value={carrierFiltro}
           onChange={(e) => setCarrierFiltro(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white"
+          className="text-sm border border-embarca-border bg-embarca-surfaceAlt text-embarca-text rounded-lg px-3 py-1.5"
         >
           <option value="todos">Todos</option>
           {CARRIERS.map((c) => (
@@ -108,18 +108,18 @@ export default function PrediccionSLAPanel() {
       </div>
 
       {/* Matriz carrier × ciudad */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+      <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg overflow-hidden overflow-x-auto">
         <table className="w-full text-sm min-w-[900px]">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-embarca-surfaceAlt border-b border-embarca-border">
             <tr>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Carrier</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Ciudad</th>
-              <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs">Semáforo</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Lag esperado</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Banda</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Tasa fallo</th>
-              <th className="text-center px-3 py-2 font-medium text-gray-600 text-xs">Confianza</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Narrativa IA</th>
+              <th className="text-left px-3 py-2 font-medium text-embarca-muted text-xs">Carrier</th>
+              <th className="text-left px-3 py-2 font-medium text-embarca-muted text-xs">Ciudad</th>
+              <th className="text-center px-3 py-2 font-medium text-embarca-muted text-xs">Semáforo</th>
+              <th className="text-right px-3 py-2 font-medium text-embarca-muted text-xs">Lag esperado</th>
+              <th className="text-right px-3 py-2 font-medium text-embarca-muted text-xs">Banda</th>
+              <th className="text-right px-3 py-2 font-medium text-embarca-muted text-xs">Tasa fallo</th>
+              <th className="text-center px-3 py-2 font-medium text-embarca-muted text-xs">Confianza</th>
+              <th className="text-left px-3 py-2 font-medium text-embarca-muted text-xs">Narrativa IA</th>
             </tr>
           </thead>
           <tbody>
@@ -134,7 +134,7 @@ export default function PrediccionSLAPanel() {
                 const bgClass = SEMAFORO_BG[pred.semaforo] ?? '';
 
                 return (
-                  <tr key={key} className={`border-b border-gray-100 ${bgClass}`}>
+                  <tr key={key} className={`border-b border-embarca-border ${bgClass}`}>
                     <td className="px-3 py-2 font-medium text-xs">
                       {CARRIER_DISPLAY_NAMES[carrier] ?? carrier}
                     </td>
@@ -155,22 +155,22 @@ export default function PrediccionSLAPanel() {
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-medium ${
                           pred.confianza >= 70
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-emerald-500/20 text-emerald-400'
                             : pred.confianza >= 40
-                              ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-amber-500/20 text-amber-400'
+                              : 'bg-red-500/20 text-red-400'
                         }`}
                       >
                         {pred.confianza}%
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-xs text-gray-600 max-w-[200px]">
+                    <td className="px-3 py-2 text-xs text-embarca-text max-w-[200px]">
                       {loadingNarrativas ? (
-                        <span className="text-gray-400 italic">Generando...</span>
+                        <span className="text-embarca-muted/60 italic">Generando...</span>
                       ) : narrativa ? (
                         narrativa
                       ) : (
-                        <span className="text-gray-400">—</span>
+                        <span className="text-embarca-muted/60">—</span>
                       )}
                     </td>
                   </tr>

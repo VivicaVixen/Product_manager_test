@@ -231,3 +231,34 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 ### Conclusión sobre riesgo
 
 El prototipo maneja el riesgo de forma explícita: cada componente con duda escala a HITL. No hay cierre automático sin confianza ≥95%. En producción real, con datos consistentes de transportadoras, la precisión de matching subiría a ~95%+ y el recall de anomalías mejoraría con un modelo entrenado. **El pronóstico de caja COD (stretch)** demuestra ambición: reframea el problema de "conciliación de horas" a "tesorería y capital de trabajo", que es el dolor real del mercado.
+
+---
+
+## Rediseño visual — Dark Mode UI (2026-06-01)
+
+### Commit `pending` — Rediseño completo de interfaz: dark mode de alto impacto
+
+**Motivación:** Producto funcional para prueba técnica requiere interfaz con impacto visual. Se cambia de tema claro (blanco/gris) a tema oscuro profesional sin tocar ninguna funcionalidad.
+
+**Archivos modificados (solo CSS/Tailwind classes, cero cambios en lógica):**
+
+| Archivo | Cambios |
+|---|---|
+| `src/app/globals.css` | Fondo `#0f172a` (slate 900), scrollbar custom, selección de texto con acento emerald |
+| `tailwind.config.js` | Paleta `embarca.*` rediseñada: surface `#0f172a`, surfaceAlt `#1e293b`, colores vibrantes con alpha (emerald-500/10, etc.) |
+| `src/app/layout.tsx` | Body con `bg-embarca-surface text-embarca-text` |
+| `src/app/page.tsx` | Header con backdrop-blur, tabs, KPI cards, tablas, modales, todos los paneles |
+| `ReclamacionesPanel.tsx` | Cards, badges, botones, textarea adaptados a oscuro |
+| `PrediccionSLAPanel.tsx` | Tabla semáforos, disclaimer, badges de confianza |
+| `CalibracionPanel.tsx` | Cards por carrier, barras de progreso, métricas |
+| `AutomapModal.tsx` | Modal overlay, tabla de mapeo, preview |
+
+**Patrón de conversión aplicado:**
+- Fondos claros `bg-{color}-50 border-{color}-200` → `bg-{color}-500/10 border-{color}-500/30` (efecto glassmorphism)
+- Badges `bg-{color}-100 text-{color}-800` → `bg-{color}-500/20 text-{color}-400`
+- Texto `text-gray-900` → `text-embarca-heading`, `text-gray-600` → `text-embarca-muted`
+- Cards `bg-white border-gray-200` → `bg-embarca-surfaceAlt border-embarca-border`
+- Botones primarios: Emerald 500 (`#10b981`) — más vibrante sobre fondo oscuro
+- Header: `backdrop-blur-sm` con fondo semitransparente para efecto glassmorphism
+
+**Verificación:** `npm run build` — ✅ Compiled successfully, 0 errors, types OK, lint OK

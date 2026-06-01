@@ -3,25 +3,44 @@
 @tailwind utilities;
 
 :root {
-  --foreground-rgb: 0, 0, 0;
-  --background-start-rgb: 214, 219, 220;
-  --background-end-rgb: 255, 255, 255;
+  --foreground-rgb: 229, 231, 235;
+  --background-start-rgb: 15, 23, 42;
+  --background-end-rgb: 15, 23, 42;
 }
 
 body {
   color: rgb(var(--foreground-rgb));
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
+  background: rgb(var(--background-start-rgb));
+}
+
+/* Scrollbar styling for dark mode */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Selection highlight */
+::selection {
+  background: rgba(5, 150, 105, 0.3);
+  color: #e5e7eb;
 }
 
 /* Print styles for export */
 @media print {
   body {
     background: white !important;
+    color: #111827 !important;
   }
 
   .print\:hidden {
@@ -44,8 +63,8 @@ body {
     page-break-inside: avoid;
   }
 
-  .bg-gray-50, .bg-green-50, .bg-yellow-50, .bg-red-50, .bg-purple-50,
-  .bg-blue-50, .bg-orange-50 {
+  .bg-gray-50, .bg-yellow-50, .bg-red-50, .bg-purple-50,
+  .bg-blue-50, .bg-orange-50, .bg-green-50, .bg-amber-50 {
     background: #f9f9f9 !important;
     -webkit-print-color-adjust: exact;
     print-color-adjust: exact;

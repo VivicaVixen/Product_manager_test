@@ -14,9 +14,9 @@ const CARRIER_DISPLAY_NAMES: Record<string, string> = {
 };
 
 const ESTADO_COLORS: Record<string, string> = {
-  borrador: 'bg-yellow-100 text-yellow-800',
-  revisada: 'bg-blue-100 text-blue-800',
-  enviada: 'bg-green-100 text-green-800',
+  borrador: 'bg-amber-500/20 text-amber-400',
+  revisada: 'bg-blue-500/20 text-blue-400',
+  enviada: 'bg-emerald-500/20 text-emerald-400',
 };
 
 const ESTADO_LABELS: Record<string, string> = {
@@ -41,7 +41,7 @@ export default function ReclamacionesPanel({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">
+        <h2 className="text-lg font-semibold text-embarca-heading">
           📨 Reclamaciones a Transportadoras
         </h2>
       </div>
@@ -55,8 +55,8 @@ export default function ReclamacionesPanel({
       </div>
 
       {reclamaciones.length === 0 ? (
-        <div className="bg-white border border-gray-200 rounded-lg p-8 text-center">
-          <p className="text-sm text-gray-500">
+        <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg p-8 text-center">
+          <p className="text-sm text-embarca-muted">
             No se han generado reclamaciones aún. Confirma una discrepancia en &quot;Mis envíos&quot; y selecciona &quot;Reclamar a transportadora&quot;.
           </p>
         </div>
@@ -102,12 +102,12 @@ function ReclamacionCard({
   };
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-3">
+    <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg p-4 space-y-3">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <span className="font-mono text-xs text-gray-500">{reclamacion.guia}</span>
-          <span className="text-sm font-medium text-gray-800">
+          <span className="font-mono text-xs text-embarca-muted">{reclamacion.guia}</span>
+          <span className="text-sm font-medium text-embarca-text">
             {CARRIER_DISPLAY_NAMES[reclamacion.carrier] ?? reclamacion.carrier}
           </span>
         </div>
@@ -121,11 +121,11 @@ function ReclamacionCard({
       {/* Montos */}
       <div className="grid grid-cols-3 gap-2 text-xs">
         <div>
-          <p className="text-gray-500">Esperado</p>
+          <p className="text-embarca-muted">Esperado</p>
           <p className="font-mono font-medium">${reclamacion.montoEsperado.toLocaleString('es-CO')}</p>
         </div>
         <div>
-          <p className="text-gray-500">Reportado</p>
+          <p className="text-embarca-muted">Reportado</p>
           <p className="font-mono font-medium">
             {reclamacion.montoReportado !== null
               ? `$${reclamacion.montoReportado.toLocaleString('es-CO')}`
@@ -133,8 +133,8 @@ function ReclamacionCard({
           </p>
         </div>
         <div>
-          <p className="text-gray-500">Diferencia</p>
-          <p className="font-mono font-medium text-red-600">
+          <p className="text-embarca-muted">Diferencia</p>
+          <p className="font-mono font-medium text-red-400">
             ${reclamacion.diferencia.toLocaleString('es-CO')}
           </p>
         </div>
@@ -145,28 +145,28 @@ function ReclamacionCard({
         <textarea
           value={reclamacion.textoGenerado}
           onChange={(e) => onUpdateTexto(reclamacion.id, e.target.value)}
-          className="w-full text-sm border border-gray-300 rounded-lg p-3 min-h-[100px] font-normal leading-relaxed"
+          className="w-full text-sm border border-embarca-border rounded-lg p-3 min-h-[100px] font-normal leading-relaxed bg-embarca-surfaceHover"
         />
       ) : (
-        <p className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-lg p-3">
+        <p className="text-sm text-embarca-text leading-relaxed bg-embarca-surfaceHover rounded-lg p-3">
           {reclamacion.textoGenerado}
         </p>
       )}
 
       {/* Fuente trazabilidad */}
-      <p className="text-xs text-gray-400">Fuente: {reclamacion.fuente}</p>
+      <p className="text-xs text-embarca-muted/60">Fuente: {reclamacion.fuente}</p>
 
       {/* Botones */}
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => setEditando((v) => !v)}
-          className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+          className="px-3 py-1.5 text-xs border border-embarca-border rounded-lg hover:bg-embarca-surfaceHover text-embarca-muted"
         >
           {editando ? 'Terminar edición' : 'Editar texto'}
         </button>
         <button
           onClick={handleCopy}
-          className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600"
+          className="px-3 py-1.5 text-xs border border-embarca-border rounded-lg hover:bg-embarca-surfaceHover text-embarca-muted"
         >
           📋 Copiar texto
         </button>
@@ -181,7 +181,7 @@ function ReclamacionCard({
         {reclamacion.estado === 'revisada' && (
           <button
             onClick={() => onUpdateEstado(reclamacion.id, 'enviada')}
-            className="px-3 py-1.5 text-xs bg-green-600 text-white rounded-lg hover:bg-green-700"
+            className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700"
           >
             Marcar enviada
           </button>

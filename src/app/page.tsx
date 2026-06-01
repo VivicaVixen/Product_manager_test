@@ -431,7 +431,7 @@ Motivo: discrepancia en el monto reportado`;
               <img src="/logo.svg" alt="embarca" className="h-6 w-auto opacity-80" />
             </div>
           </div>
-          <p className="text-gray-600">Cargando datos de conciliación...</p>
+          <p className="text-embarca-muted">Cargando datos de conciliación...</p>
         </div>
       </main>
     );
@@ -440,12 +440,12 @@ Motivo: discrepancia en el monto reportado`;
   if (error) {
     return (
       <main className="min-h-screen bg-embarca-surface flex items-center justify-center">
-        <div className="text-center bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-          <p className="text-red-800 font-semibold mb-2">Error</p>
-          <p className="text-red-600 text-sm">{error}</p>
+        <div className="text-center bg-embarca-danger-light border border-embarca-danger/30 rounded-lg p-6 max-w-md">
+          <p className="text-embarca-danger font-semibold mb-2">Error</p>
+          <p className="text-embarca-danger/80 text-sm">{error}</p>
           <button
             onClick={() => loadPipeline()}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+            className="mt-4 px-4 py-2 bg-embarca-danger text-white rounded hover:bg-red-700"
           >
             Reintentar
           </button>
@@ -489,8 +489,8 @@ Motivo: discrepancia en el monto reportado`;
 
   return (
     <main className="min-h-screen bg-embarca-surface">
-      {/* Block 5: Header rediseñado con logo Embarca */}
-      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
+      {/* Block 5: Header rediseñado con logo Embarca — dark mode */}
+      <header className="bg-embarca-surfaceAlt/80 backdrop-blur-sm border-b border-embarca-border shadow-lg sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
           {/* Logo + contexto */}
           <div className="flex items-center gap-3">
@@ -506,21 +506,21 @@ Motivo: discrepancia en el monto reportado`;
             <div ref={personaMenuRef} className="relative hidden md:block">
               <button
                 onClick={() => setPersonaMenuOpen((v) => !v)}
-                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+                className="flex items-center gap-2 text-sm text-embarca-muted hover:text-embarca-text transition-colors"
               >
                 <div className="w-7 h-7 rounded-full bg-embarca-light flex items-center justify-center text-embarca-DEFAULT font-bold text-xs">
                   {persona.iniciales}
                 </div>
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-800 leading-none">{persona.nombre}</p>
-                  <p className="text-xs text-gray-400 mt-0.5">{persona.rol}</p>
+                  <p className="text-sm font-medium text-embarca-heading leading-none">{persona.nombre}</p>
+                  <p className="text-xs text-embarca-muted mt-0.5">{persona.rol}</p>
                 </div>
-                <span className="text-gray-400 text-xs">▾</span>
+                <span className="text-embarca-muted text-xs">▾</span>
               </button>
 
               {personaMenuOpen && (
-                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1">
-                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 py-2">
+                <div className="absolute right-0 mt-2 w-64 bg-embarca-surfaceAlt border border-embarca-border-strong rounded-xl shadow-xl z-50 py-1">
+                  <p className="text-xs font-medium text-embarca-muted uppercase tracking-wide px-3 py-2">
                     Cambiar usuario demo
                   </p>
                   {PERSONAS.map((p) => (
@@ -531,7 +531,7 @@ Motivo: discrepancia en el monto reportado`;
                         setPersonaMenuOpen(false);
                         loadPipeline(p.id);
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-embarca-surfaceHover transition-colors ${
                         p.id === personaActiva ? 'bg-embarca-light' : ''
                       }`}
                     >
@@ -539,8 +539,8 @@ Motivo: discrepancia en el monto reportado`;
                         {p.iniciales}
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-800">{p.nombre}</p>
-                        <p className="text-xs text-gray-400">{p.rol}</p>
+                        <p className="text-sm font-medium text-embarca-heading">{p.nombre}</p>
+                        <p className="text-xs text-embarca-muted">{p.rol}</p>
                       </div>
                       {p.id === personaActiva && (
                         <span className="ml-auto text-embarca-DEFAULT text-xs">✓</span>
@@ -553,20 +553,20 @@ Motivo: discrepancia en el monto reportado`;
 
             <button
               onClick={() => loadPipeline()}
-              className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+              className="px-3 py-1.5 text-sm bg-embarca-surfaceAlt border border-embarca-border text-embarca-muted hover:text-embarca-text hover:bg-embarca-surfaceHover rounded-lg transition-colors"
               title="Recargar datos"
             >
               🔄
             </button>
             <button
               onClick={() => state && generarReportePDF(state, persona)}
-              className="px-3 py-1.5 text-sm bg-embarca-light border border-embarca-DEFAULT/30 text-embarca-dark rounded-lg hover:bg-embarca-light/80 transition-colors print:hidden"
+              className="px-3 py-1.5 text-sm bg-embarca-light border border-embarca-DEFAULT/30 text-embarca-DEFAULT rounded-lg hover:bg-embarca-light/80 transition-colors print:hidden"
             >
               📄 Exportar
             </button>
             <button
               onClick={handleSeedReset}
-              className="px-3 py-1.5 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors"
+              className="px-3 py-1.5 text-sm bg-embarca-gold-light border border-embarca-gold/30 text-embarca-gold rounded-lg hover:bg-embarca-gold-light/80 transition-colors"
               title="Reiniciar datos de demo"
             >
               🌱 Reset demo
@@ -575,8 +575,8 @@ Motivo: discrepancia en el monto reportado`;
               onClick={() => setModoEvaluador((v) => !v)}
               className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
                 modoEvaluador
-                  ? 'bg-purple-100 border-purple-300 text-purple-700 font-medium'
-                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-gray-500'
+                  ? 'bg-purple-500/20 border-purple-500/40 text-purple-400 font-medium'
+                  : 'bg-embarca-surfaceAlt border-embarca-border text-embarca-muted hover:text-embarca-text'
               }`}
               title={modoEvaluador ? 'Cambiar a vista de usuario' : 'Activar vista evaluador'}
             >
@@ -586,10 +586,10 @@ Motivo: discrepancia en el monto reportado`;
         </div>
       </header>
 
-      {/* F3: Alertas C1 — mensaje amigable siempre, detalles solo evaluador */}
+      {/* F3: Alertas C1 — mensaje amigable siempre, detalles solo evaluador — dark mode */}
       {c1Alerts.length > 0 && (
         <div className="max-w-7xl mx-auto px-6 pt-4">
-          <div className="bg-embarca-gold-light border border-embarca-gold/20 rounded-lg p-3">
+          <div className="bg-embarca-gold-light border border-embarca-gold/30 rounded-lg p-3">
             <p className="text-sm text-embarca-gold font-medium">
               ⚠️ {c1Alerts.length} envío{c1Alerts.length > 1 ? 's' : ''} con transportadora no reconocida — están siendo revisados por el equipo de operaciones.
             </p>
@@ -597,10 +597,10 @@ Motivo: discrepancia en el monto reportado`;
             {modoEvaluador && (
               <details className="mt-1">
                 <summary className="text-xs text-embarca-gold cursor-pointer">Ver detalles técnicos (vista evaluador)</summary>
-                <ul className="mt-1 text-xs text-embarca-gold space-y-1 font-mono">
+                <ul className="mt-1 text-xs text-embarca-gold/80 space-y-1 font-mono">
                   {c1Alerts.map((a, i) => (
                     <li key={i}>
-                      <code className="bg-embarca-gold-light/60 px-1 rounded">{a.guia_o_linea}</code> — {a.razon}
+                      <code className="bg-embarca-gold-light/40 px-1 rounded">{a.guia_o_linea}</code> — {a.razon}
                     </li>
                   ))}
                 </ul>
@@ -619,9 +619,9 @@ Motivo: discrepancia en el monto reportado`;
         </div>
       )}
 
-      {/* Block 5: Tabs con estilo Embarca + Block 4: tabs dinámicos */}
+      {/* Block 5: Tabs con estilo Embarca + Block 4: tabs dinámicos — dark mode */}
       <div className="max-w-7xl mx-auto px-6 pt-4">
-        <div className="flex gap-1 border-b border-gray-200">
+        <div className="flex gap-1 border-b border-embarca-border-strong">
           {tabs.map((tab) => (
             <button
               key={tab.key}
@@ -646,17 +646,17 @@ Motivo: discrepancia en el monto reportado`;
             <div className="bg-embarca-light border border-embarca-DEFAULT/20 rounded-xl p-5">
               <div className="flex items-center gap-2 mb-3">
                 <span className="text-lg">✨</span>
-                <h2 className="text-base font-semibold text-embarca-dark">Tu semana en faro</h2>
+                <h2 className="text-base font-semibold text-embarca-text">Tu semana en faro</h2>
                 {aiLoading && (
-                  <span className="text-xs text-embarca-500 animate-pulse ml-2">Analizando...</span>
+                  <span className="text-xs text-embarca-muted animate-pulse ml-2">Analizando...</span>
                 )}
               </div>
               {aiLoading ? (
-                <p className="text-sm text-embarca-400 italic">Generando resumen...</p>
+                <p className="text-sm text-embarca-muted italic">Generando resumen...</p>
               ) : (
                 <div>
                   {aiText?.split('\n\n').filter(Boolean).map((bloque, i) => (
-                    <p key={i} className="text-sm text-embarca-700 leading-relaxed mt-2 first:mt-0">
+                    <p key={i} className="text-sm text-embarca-text leading-relaxed mt-2 first:mt-0">
                       {bloque}
                     </p>
                   ))}
@@ -697,11 +697,11 @@ Motivo: discrepancia en el monto reportado`;
             <div className="flex items-center gap-3 bg-embarca-light border border-embarca-DEFAULT/20 rounded-xl px-5 py-3">
               <span className="text-2xl">⏱️</span>
               <div>
-                <p className="text-sm font-semibold text-embarca-dark">
+                <p className="text-sm font-semibold text-embarca-text">
                   Esta semana el sistema procesó automáticamente el{' '}
                   {(metrics.tasa_conciliacion_automatica * 100).toFixed(0)}% de tus envíos
                 </p>
-                <p className="text-xs text-embarca-500 mt-0.5">
+                <p className="text-xs text-embarca-muted mt-0.5">
                   Equivalente a ~{((metrics.tasa_conciliacion_automatica * state.orders.length * 3) / 60).toFixed(1)} horas menos en Excel
                   {' '}· vs. 3–6 h de conciliación manual semanal
                 </p>
@@ -713,19 +713,19 @@ Motivo: discrepancia en el monto reportado`;
               <KPICard
                 label="Total Confirmado"
                 value={`$${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M`}
-                color="bg-green-50 border-green-200 text-green-800"
+                color="bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                 tooltip="Monto total de envíos cuya entrega y pago fueron verificados correctamente"
               />
               <KPICard
                 label="Total Pendiente"
                 value={`$${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M`}
-                color="bg-amber-50 border-amber-200 text-amber-800"
+                color="bg-amber-500/10 border-amber-500/30 text-amber-400"
                 tooltip="Envíos entregados cuyo pago aún no ha sido acreditado por la transportadora"
               />
               <KPICard
                 label="Envíos por revisar"
                 value={discrepancias.length.toString()}
-                color="bg-red-50 border-red-200 text-red-800"
+                color="bg-red-500/10 border-red-500/30 text-red-400"
                 tooltip="Casos donde el monto esperado y el reportado no coinciden — requieren tu decisión"
               />
               <KPICard
@@ -938,36 +938,36 @@ Redacta un resumen semanal para Andrés, el vendedor. Menciona el monto total, q
         <KPICard
           label="Total Confirmado"
           value={`$${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M`}
-          color="bg-green-50 border-green-200 text-green-800"
+          color="bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
           tooltip="Monto total de envíos cuya entrega y pago fueron verificados correctamente"
         />
         <KPICard
           label="Total Pendiente"
           value={`$${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M`}
-          color="bg-amber-50 border-amber-200 text-amber-800"
+          color="bg-amber-500/10 border-amber-500/30 text-amber-400"
           tooltip="Envíos entregados cuyo pago aún no ha sido acreditado por la transportadora"
         />
         <KPICard
           label="Envíos por revisar"
           value={discrepancias.length.toString()}
-          color="bg-red-50 border-red-200 text-red-800"
+          color="bg-red-500/10 border-red-500/30 text-red-400"
           tooltip="Casos donde el monto esperado y el reportado no coinciden — requieren tu decisión"
         />
         <KPICard
           label="Alertas detectadas"
           value={anomaliasActivas.length.toString()}
-          color="bg-embarca-50 border-embarca-500/20 text-embarca-700"
+          color="bg-embarca-surfaceAlt border-embarca-border text-embarca-text"
           tooltip="Posibles cobros incorrectos detectados automáticamente por el sistema"
         />
       </div>
 
       {/* Block 3: AI Summary con Groq */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">✨ Resumen de la semana</h3>
+      <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-embarca-heading mb-2">✨ Resumen de la semana</h3>
         {aiLoading ? (
-          <p className="text-sm text-blue-400 italic">Generando resumen...</p>
+          <p className="text-sm text-embarca-muted italic">Generando resumen...</p>
         ) : (
-          <p className="text-sm text-blue-700">{aiText}</p>
+          <p className="text-sm text-embarca-text">{aiText}</p>
         )}
       </div>
 
@@ -1032,14 +1032,14 @@ function StatCard({
   return (
     <div
       className={`rounded-lg border p-4 ${
-        good ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+        good ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-red-500/10 border-red-500/30'
       }`}
     >
-      <p className="text-xs font-medium text-gray-600">{label}</p>
-      <p className={`text-xl font-bold mt-1 ${good ? 'text-green-800' : 'text-red-800'}`}>
+      <p className="text-xs font-medium text-embarca-text">{label}</p>
+      <p className={`text-xl font-bold mt-1 ${good ? 'text-emerald-400' : 'text-red-400'}`}>
         {value}
       </p>
-      <p className="text-xs text-gray-500">Target: {target}</p>
+      <p className="text-xs text-embarca-muted">Target: {target}</p>
     </div>
   );
 }
@@ -1121,7 +1121,7 @@ function ThWithTooltip({
   const isSorted = sortCol === label;
   return (
     <th
-      className={`text-left px-3 py-2 font-medium text-gray-600 text-xs relative ${sortable ? 'cursor-pointer select-none' : 'cursor-default'}`}
+      className={`text-left px-3 py-2 font-medium text-embarca-muted text-xs relative ${sortable ? 'cursor-pointer select-none' : 'cursor-default'}`}
       onMouseEnter={() => setShow(true)}
       onMouseLeave={() => setShow(false)}
       onClick={() => sortable && onSort(label)}
@@ -1239,7 +1239,7 @@ function DiscrepancyTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Envíos que necesitan tu atención</h2>
+        <h2 className="text-lg font-semibold text-embarca-heading">Envíos que necesitan tu atención</h2>
       </div>
 
       {/* F4: Filtros + B9: búsqueda por guía */}
@@ -1250,12 +1250,12 @@ function DiscrepancyTable({
           placeholder="Buscar por guía..."
           value={filtroGuia}
           onChange={(e) => setFiltroGuia(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 w-44 focus:outline-none focus:border-embarca-500"
+          className="text-sm border border-embarca-border rounded-lg px-3 py-1.5 bg-embarca-surfaceAlt text-embarca-text w-44 focus:outline-none focus:border-embarca-500"
         />
         <select
           value={filtroCarrier}
           onChange={(e) => setFiltroCarrier(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700"
+          className="text-sm border border-embarca-border rounded-lg px-3 py-1.5 bg-embarca-surfaceAlt text-embarca-text"
         >
           <option value="todos">Todas las transportadoras</option>
           {carriersUnicos.map((c) => (
@@ -1268,7 +1268,7 @@ function DiscrepancyTable({
         <select
           value={filtroEstado}
           onChange={(e) => setFiltroEstado(e.target.value)}
-          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700"
+          className="text-sm border border-embarca-border rounded-lg px-3 py-1.5 bg-embarca-surfaceAlt text-embarca-text"
         >
           <option value="todos">Todos los estados</option>
           <option value="pendiente">Pendiente de decisión</option>
@@ -1282,20 +1282,20 @@ function DiscrepancyTable({
               setFiltroCarrier('todos');
               setFiltroEstado('todos');
             }}
-            className="text-xs text-gray-400 hover:text-gray-600 underline"
+            className="text-xs text-embarca-muted/60 hover:text-embarca-muted underline"
           >
             Limpiar filtros
           </button>
         )}
 
-        <span className="text-xs text-gray-400 ml-auto">
+        <span className="text-xs text-embarca-muted/60 ml-auto">
           {discrepanciasFiltradas.length} de {discrepancias.length} envíos
         </span>
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden overflow-x-auto">
+      <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg overflow-hidden overflow-x-auto">
         <table className="w-full text-sm min-w-[900px]">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-embarca-surfaceAlt border-b border-embarca-border">
             <tr>
               <ThWithTooltip label="Guía" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
               <ThWithTooltip label="Carrier" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
@@ -1318,8 +1318,8 @@ function DiscrepancyTable({
               return (
                 <tr
                   key={d.guia}
-                  className={`border-b border-gray-100 ${
-                    resuelto ? 'bg-green-50' : anomalia ? 'bg-red-50' : 'bg-yellow-50'
+                  className={`border-b border-embarca-border ${
+                    resuelto ? 'bg-emerald-500/10' : anomalia ? 'bg-red-500/10' : 'bg-amber-500/10'
                   }`}
                 >
                   <td className="px-3 py-2 font-mono text-xs">{d.guia}</td>
@@ -1354,10 +1354,10 @@ function DiscrepancyTable({
                       label={d.clase === 'pendiente_acreditacion' ? 'Pendiente' : d.clase}
                       color={`px-2 py-0.5 rounded text-xs font-medium ${
                         d.clase === 'cobrado'
-                          ? 'bg-green-100 text-green-800'
+                          ? 'bg-emerald-500/20 text-emerald-400'
                           : d.clase === 'pendiente_acreditacion'
-                            ? 'bg-yellow-100 text-yellow-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-amber-500/20 text-amber-400'
+                            : 'bg-red-500/20 text-red-400'
                       }`}
                       tipo="clase"
                       clave={d.clase as ClaseKey}
@@ -1365,11 +1365,11 @@ function DiscrepancyTable({
                   </td>
                   <td className="px-3 py-2 text-xs">
                     {anomalia ? (
-                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                      <span className="px-2 py-0.5 rounded text-xs font-medium bg-purple-500/20 text-purple-400">
                         {anomalia.razon}
                       </span>
                     ) : (
-                      <span className="text-gray-400">—</span>
+                      <span className="text-embarca-muted/60">—</span>
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs">
@@ -1389,7 +1389,7 @@ function DiscrepancyTable({
                         clave="pendiente"
                       />
                     ) : (
-                      <span className="text-gray-400">Auto</span>
+                      <span className="text-embarca-muted/60">Auto</span>
                     )}
                   </td>
                   <td className="px-3 py-2">
@@ -1485,7 +1485,7 @@ Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las t
     return (
       <ModalOverlay onCancel={onCancel}>
         <h3 className="text-lg font-semibold mb-4">Revisión de Conciliación</h3>
-        <div className="space-y-1 text-sm mb-4 bg-gray-50 p-3 rounded">
+        <div className="space-y-1 text-sm mb-4 bg-embarca-surfaceHover p-3 rounded">
           <p>
             <strong>Guía:</strong> {guia} ({displayCarrier(carrier)})
           </p>
@@ -1510,7 +1510,7 @@ Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las t
         </div>
         {/* E3: AI explanation */}
         {aiBlock}
-        <p className="text-sm text-gray-500 mb-4">¿Cómo desea clasificar este envío?</p>
+        <p className="text-sm text-embarca-muted mb-4">¿Cómo desea clasificar este envío?</p>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => onConfirm('cobrado')}
@@ -1540,7 +1540,7 @@ Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las t
   return (
     <ModalOverlay onCancel={onCancel}>
       <h3 className="text-lg font-semibold mb-4">Revisión de Alerta</h3>
-      <div className="space-y-1 text-sm mb-4 bg-gray-50 p-3 rounded">
+      <div className="space-y-1 text-sm mb-4 bg-embarca-surfaceHover p-3 rounded">
         <p>
           <strong>Guía:</strong> {guia} ({displayCarrier(carrier)})
         </p>
@@ -1557,7 +1557,7 @@ Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las t
       </div>
       {/* E3: AI explanation */}
       {aiBlock}
-      <p className="text-sm text-gray-500 mb-4">¿Qué acción desea tomar?</p>
+      <p className="text-sm text-embarca-muted mb-4">¿Qué acción desea tomar?</p>
       <div className="flex gap-2 flex-wrap">
         <button
           onClick={() => onConfirm('confirmar_discrepancia')}
@@ -1591,13 +1591,13 @@ function ModalOverlay({
   children: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full">
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+      <div className="bg-embarca-surfaceAlt rounded-lg shadow-xl p-6 max-w-lg w-full">
         {children}
-        <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
+        <div className="mt-6 flex justify-end border-t border-embarca-border pt-4">
           <button
             onClick={onCancel}
-            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+            className="px-4 py-2 text-sm text-embarca-muted border border-embarca-border rounded hover:bg-embarca-surfaceHover"
           >
             Cancelar
           </button>
@@ -1724,7 +1724,7 @@ function MetricsPanel({ metrics, reclamaciones, automapCount }: { metrics: AppSt
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">Panel de Métricas</h2>
+      <h2 className="text-lg font-semibold text-embarca-heading">Panel de Métricas</h2>
 
       {/* Block 4: nota evaluador */}
       <div className="bg-embarca-light border border-embarca-DEFAULT/20 rounded-lg p-3 mb-4">
@@ -1741,14 +1741,14 @@ function MetricsPanel({ metrics, reclamaciones, automapCount }: { metrics: AppSt
         )}
       </div>
 
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-embarca-surfaceAlt border-b border-embarca-border">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Métrica</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-600">Valor</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-600">Target Prod</th>
-              <th className="text-center px-4 py-2 font-medium text-gray-600">Estado</th>
+              <th className="text-left px-4 py-2 font-medium text-embarca-muted">Métrica</th>
+              <th className="text-right px-4 py-2 font-medium text-embarca-muted">Valor</th>
+              <th className="text-right px-4 py-2 font-medium text-embarca-muted">Target Prod</th>
+              <th className="text-center px-4 py-2 font-medium text-embarca-muted">Estado</th>
             </tr>
           </thead>
           <tbody>
@@ -1768,10 +1768,10 @@ function MetricsPanel({ metrics, reclamaciones, automapCount }: { metrics: AppSt
               }
 
               return (
-                <tr key={i} className="border-b border-gray-100">
-                  <td className="px-4 py-2">{row.label}</td>
-                  <td className="px-4 py-2 text-right font-mono">{displayValue}</td>
-                  <td className="px-4 py-2 text-right text-gray-500">
+                <tr key={i} className="border-b border-embarca-border">
+                  <td className="px-4 py-2 text-embarca-text">{row.label}</td>
+                  <td className="px-4 py-2 text-right font-mono text-embarca-text">{displayValue}</td>
+                  <td className="px-4 py-2 text-right text-embarca-muted">
                     {row.target !== null
                       ? row.format === 'pct'
                         ? `${(row.target * 100).toFixed(0)}%`
@@ -1782,13 +1782,13 @@ function MetricsPanel({ metrics, reclamaciones, automapCount }: { metrics: AppSt
                     {row.target !== null ? (
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          isGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                          isGood ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'
                         }`}
                       >
                         {isGood ? '✅ OK' : '⚠️ Bajo'}
                       </span>
                     ) : (
-                      <span className="text-gray-400 text-xs">Info</span>
+                      <span className="text-embarca-muted/60 text-xs">Info</span>
                     )}
                   </td>
                 </tr>
@@ -1866,23 +1866,23 @@ Redacta 3 bloques cortos: (1) ¿cuándo entra la plata?, (2) ¿qué carrier la e
   if (!forecast || forecast.carriers.length === 0) {
     return (
       <div className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900">Pronóstico de Caja COD</h2>
-        <p className="text-sm text-gray-500">Feature stretch — en desarrollo.</p>
+        <h2 className="text-lg font-semibold text-embarca-heading">Pronóstico de Caja COD</h2>
+        <p className="text-sm text-embarca-muted">Feature stretch — en desarrollo.</p>
       </div>
     );
   }
 
   const semaforoIcon: Record<string, string> = { verde: '🟢', amarillo: '🟡', rojo: '' };
   const semaforoBg: Record<string, string> = {
-    verde: 'bg-green-50 border-green-200',
-    amarillo: 'bg-yellow-50 border-yellow-200',
-    rojo: 'bg-red-50 border-red-200',
+    verde: 'bg-emerald-500/10 border-emerald-500/30',
+    amarillo: 'bg-amber-500/10 border-amber-500/30',
+    rojo: 'bg-red-500/10 border-red-500/30',
   };
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-semibold text-gray-900">💰 Pronóstico de Caja COD</h2>
-      <p className="text-sm text-gray-500">
+      <h2 className="text-lg font-semibold text-embarca-heading">💰 Pronóstico de Caja COD</h2>
+      <p className="text-sm text-embarca-muted">
         Proyección de remesa por transportadora basada en lag histórico de pago.
       </p>
 
@@ -1907,41 +1907,41 @@ Redacta 3 bloques cortos: (1) ¿cuándo entra la plata?, (2) ¿qué carrier la e
         <KPICard
           label="Total por cobrar"
           value={`$${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M`}
-          color="bg-yellow-50 border-yellow-200 text-yellow-800"
+          color="bg-amber-500/10 border-amber-500/30 text-amber-400"
           tooltip="Monto total pendiente de remesa de todas las transportadoras"
         />
         <KPICard
           label="Proyección de entrada"
           value={`$${(forecast.totalProyectadoCOP / 1_000_000).toFixed(1)}M`}
-          color="bg-green-50 border-green-200 text-green-800"
+          color="bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
           tooltip="Monto que se espera recibir basado en el patrón histórico de pago"
         />
         <KPICard
           label="En riesgo de atraso"
           value={`$${(forecast.riesgoAtrasoCOP / 1_000_000).toFixed(1)}M`}
-          color="bg-red-50 border-red-200 text-red-800"
+          color="bg-red-500/10 border-red-500/30 text-red-400"
           tooltip="Monto de transportadoras que están pagando más lento que su patrón"
         />
       </div>
 
       {/* Carrier Table */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      <div className="bg-embarca-surfaceAlt border border-embarca-border rounded-lg overflow-hidden">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-embarca-surfaceAlt border-b border-embarca-border">
             <tr>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Carrier</th>
-              <th className="text-center px-4 py-2 font-medium text-gray-600">Semáforo</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-600">Lag histórico</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-600">Lag actual</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-600">Por cobrar</th>
-              <th className="text-right px-4 py-2 font-medium text-gray-600">Órdenes</th>
-              <th className="text-left px-4 py-2 font-medium text-gray-600">Señal</th>
+              <th className="text-left px-4 py-2 font-medium text-embarca-muted">Carrier</th>
+              <th className="text-center px-4 py-2 font-medium text-embarca-muted">Semáforo</th>
+              <th className="text-right px-4 py-2 font-medium text-embarca-muted">Lag histórico</th>
+              <th className="text-right px-4 py-2 font-medium text-embarca-muted">Lag actual</th>
+              <th className="text-right px-4 py-2 font-medium text-embarca-muted">Por cobrar</th>
+              <th className="text-right px-4 py-2 font-medium text-embarca-muted">Órdenes</th>
+              <th className="text-left px-4 py-2 font-medium text-embarca-muted">Señal</th>
             </tr>
           </thead>
           <tbody>
             {forecast.carriers.map((c) => (
-              <tr key={c.carrier} className={`border-b border-gray-100 ${semaforoBg[c.semafaro] ?? ''}`}>
-                <td className="px-4 py-2 font-medium">{displayCarrier(c.carrier)}</td>
+              <tr key={c.carrier} className={`border-b border-embarca-border ${semaforoBg[c.semafaro] ?? ''}`}>
+                <td className="px-4 py-2 font-medium text-embarca-text">{displayCarrier(c.carrier)}</td>
                 <td className="px-4 py-2 text-center text-lg">{semaforoIcon[c.semafaro]}</td>
                 <td className="px-4 py-2 text-right">{c.lagMedianoHistorico}d</td>
                 <td className="px-4 py-2 text-right">{c.lagMedianoActual}d</td>
@@ -1949,7 +1949,7 @@ Redacta 3 bloques cortos: (1) ¿cuándo entra la plata?, (2) ¿qué carrier la e
                   ${c.totalPorCobrarCOP.toLocaleString('es-CO')}
                 </td>
                 <td className="px-4 py-2 text-right">{c.ordenesPendientes}</td>
-                <td className="px-4 py-2 text-xs text-gray-600">{c.senal}</td>
+                <td className="px-4 py-2 text-xs text-embarca-text">{c.senal}</td>
               </tr>
             ))}
           </tbody>
