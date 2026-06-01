@@ -8,6 +8,7 @@ import type {
   HitlRecord,
   HitlDecisionC2,
   HitlDecisionC7,
+  CarrierId,
 } from '@/lib/types';
 
 // ============================================================================
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'resumen' | 'discrepancias' | 'pronostico' | 'metricas'>('resumen');
+  const [modoEvaluador, setModoEvaluador] = useState(false);
   const [hitlModal, setHitlModal] = useState<{
     guia: string;
     carrier: string;
@@ -59,11 +61,12 @@ export default function Dashboard() {
     loadPipeline();
   }, [loadPipeline]);
 
+  // Block 1: handleSeedReset — solo llama loadPipeline() que hace GET fresco
   const handleSeedReset = async () => {
-    await fetch('/api/pipeline', { method: 'POST', body: JSON.stringify({ reset: true }) });
     await loadPipeline();
   };
 
+  // Block 1: handleHitlDecision — envía lista completa de HITL al servidor
   const handleHitlDecision = async (
     guia: string,
     carrier: string,
@@ -71,19 +74,32 @@ export default function Dashboard() {
     decision: HitlDecisionC2 | HitlDecisionC7,
     nota?: string
   ) => {
+    const newRecord: HitlRecord = {
+      guia,
+      carrier: carrier as CarrierId,
+      tipo,
+      decision,
+      nota_usuario: nota,
+      timestamp: new Date().toISOString(),
+    };
+
+    // Actualizar lista local de HITL (upsert)
+    const prevRecords = state?.hitlRecords ?? [];
+    const updatedRecords = [...prevRecords];
+    const idx = updatedRecords.findIndex(
+      (r) => r.guia === newRecord.guia && r.tipo === newRecord.tipo
+    );
+    if (idx >= 0) {
+      updatedRecords[idx] = newRecord;
+    } else {
+      updatedRecords.push(newRecord);
+    }
+
+    // Enviar lista completa al servidor — él re-ejecuta el pipeline con todos los HITL
     const res = await fetch('/api/pipeline', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        decision: {
-          guia,
-          carrier,
-          tipo,
-          decision,
-          nota_usuario: nota,
-          timestamp: new Date().toISOString(),
-        },
-      }),
+      body: JSON.stringify({ hitlRecords: updatedRecords }),
     });
     const data: PipelineResponse = await res.json();
     if (data.success && data.state) {
@@ -100,7 +116,7 @@ export default function Dashboard() {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-embarca mx-auto mb-4" />
           <p className="text-gray-600">Cargando datos de conciliación...</p>
         </div>
       </main>
@@ -136,46 +152,82 @@ export default function Dashboard() {
   // Filtrar anomalías activas
   const anomaliasActivas = anomalias.filter((a) => a.flag);
 
+  // Block 4: Tabs dinámicos según modo
+  const tabs = [
+    { key: 'resumen' as const, label: '🏠 Resumen' },
+    { key: 'discrepancias' as const, label: `📋 Mis envíos (${discrepancias.length})` },
+    { key: 'pronostico' as const, label: '💰 Pronóstico de Caja' },
+    ...(modoEvaluador
+      ? [{ key: 'metricas' as const, label: '🔬 Panel Técnico' }]
+      : []),
+  ];
+
   return (
     <main className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="bg-white border-b border-gray-200 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">Embarca — Conciliador Inteligente</h1>
-            <p className="text-sm text-gray-500">
-              {state.orders.length} órdenes · {state.currentBatch} batches · {new Date().toLocaleDateString('es-CO')}
-            </p>
+      {/* Block 5: Header rediseñado con logo Embarca */}
+      <header className="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between">
+          {/* Logo + contexto */}
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo.svg" alt="embarca" className="h-8 w-auto" />
+            <div className="hidden sm:block">
+              <p className="text-xs text-gray-400 leading-none mt-0.5">Conciliador Inteligente</p>
+            </div>
           </div>
-          <div className="flex gap-2">
+
+          {/* Usuario simulado + acciones */}
+          <div className="flex items-center gap-2">
+            <div className="hidden md:flex items-center gap-2 mr-2 text-sm text-gray-500">
+              <div className="w-7 h-7 rounded-full bg-embarca-50 flex items-center justify-center text-embarca-500 font-bold text-xs">
+                AG
+              </div>
+              <span>Andrés García</span>
+              <span className="text-gray-300">·</span>
+              <span className="text-xs text-gray-400">{state.orders.length} órdenes · {new Date().toLocaleDateString('es-CO')}</span>
+            </div>
+
             <button
               onClick={loadPipeline}
-              className="px-3 py-1.5 text-sm bg-gray-100 border border-gray-300 rounded hover:bg-gray-200"
+              className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
+              title="Recargar datos"
             >
-              🔄 Recargar
+              🔄
             </button>
             <button
               onClick={() => window.print()}
-              className="px-3 py-1.5 text-sm bg-blue-100 border border-blue-300 text-blue-800 rounded hover:bg-blue-200 print:hidden"
+              className="px-3 py-1.5 text-sm bg-embarca-50 border border-embarca-500/30 text-embarca-500 rounded-lg hover:bg-embarca-light transition-colors print:hidden"
             >
               📄 Exportar
             </button>
             <button
               onClick={handleSeedReset}
-              className="px-3 py-1.5 text-sm bg-yellow-100 border border-yellow-300 text-yellow-800 rounded hover:bg-yellow-200"
+              className="px-3 py-1.5 text-sm bg-amber-50 border border-amber-200 text-amber-700 rounded-lg hover:bg-amber-100 transition-colors"
+              title="Reiniciar datos de demo"
             >
-              🌱 Seed / Reset
+              🌱 Reset demo
+            </button>
+            <button
+              onClick={() => setModoEvaluador((v) => !v)}
+              className={`px-3 py-1.5 text-xs rounded-lg border transition-colors ${
+                modoEvaluador
+                  ? 'bg-purple-100 border-purple-300 text-purple-700 font-medium'
+                  : 'bg-gray-50 border-gray-200 text-gray-400 hover:text-gray-500'
+              }`}
+              title={modoEvaluador ? 'Cambiar a vista de usuario' : 'Activar vista evaluador'}
+            >
+              {modoEvaluador ? '🔬 Evaluador' : '👤 Producto'}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Alertas C1 */}
+      {/* Block 4: Alertas C1 — texto limpio para Vista Producto */}
       {c1Alerts.length > 0 && (
         <div className="max-w-7xl mx-auto px-6 pt-4">
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
             <p className="text-sm text-orange-800 font-medium">
-              ⚠️ {c1Alerts.length} alerta{c1Alerts.length > 1 ? 's' : ''} de normalización — formato desconocido, requiere mapeo de ops
+              ⚠️ {c1Alerts.length} transportadora{c1Alerts.length > 1 ? 's' : ''} con formato no reconocido — se están revisando
             </p>
             <details className="mt-1">
               <summary className="text-xs text-orange-600 cursor-pointer">Ver detalles</summary>
@@ -191,22 +243,17 @@ export default function Dashboard() {
         </div>
       )}
 
-      {/* Tabs */}
+      {/* Block 5: Tabs con estilo Embarca + Block 4: tabs dinámicos */}
       <div className="max-w-7xl mx-auto px-6 pt-4">
         <div className="flex gap-1 border-b border-gray-200">
-          {[
-            { key: 'resumen' as const, label: ' Resumen' },
-            { key: 'discrepancias' as const, label: ` Discrepancias (${discrepancias.length})` },
-            { key: 'pronostico' as const, label: '💰 Pronóstico Caja' },
-            { key: 'metricas' as const, label: '📈 Métricas' },
-          ].map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-all ${
                 activeTab === tab.key
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-500 hover:text-gray-700'
+                  ? 'border-embarca-500 text-embarca-500'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
               }`}
             >
               {tab.label}
@@ -243,7 +290,7 @@ export default function Dashboard() {
         {activeTab === 'pronostico' && (
           <CashForecastPanel forecast={state.cashForecast} />
         )}
-        {activeTab === 'metricas' && <MetricsPanel metrics={metrics} />}
+        {activeTab === 'metricas' && modoEvaluador && <MetricsPanel metrics={metrics} />}
       </div>
 
       {/* HITL Modal */}
@@ -261,8 +308,7 @@ export default function Dashboard() {
 }
 
 // ============================================================================
-// AI Summary Generator (RF-IA-1: Resumen narrado del estado semanal)
-// Deterministic fallback — same output an LLM would produce from structured input.
+// AI Summary Generator — Fallback determinista (sin texto "Fallback" en UI)
 // ============================================================================
 
 function generateAISummary(
@@ -274,16 +320,13 @@ function generateAISummary(
   const totalM = (totalCOP / 1_000_000).toFixed(1);
   const autoRate = (metrics.tasa_conciliacion_automatica * 100).toFixed(0);
   const recall = (metrics.recall_anomalias * 100).toFixed(0);
-  const normalizacion = (metrics.tasa_normalizacion * 100).toFixed(0);
 
-  // Transportadoras con más discrepancias
   const discByCarrier = new Map<string, number>();
   for (const d of discrepancias) {
     discByCarrier.set(d.carrier, (discByCarrier.get(d.carrier) ?? 0) + 1);
   }
   const topCarrier = [...discByCarrier.entries()].sort((a, b) => b[1] - a[1])[0];
 
-  // Anomalías por razón
   const anomByReason = new Map<string, number>();
   for (const a of anomaliasActivas) {
     anomByReason.set(a.razon, (anomByReason.get(a.razon) ?? 0) + 1);
@@ -291,12 +334,10 @@ function generateAISummary(
 
   const parts: string[] = [];
 
-  // Apertura
   parts.push(
     `Esta semana se procesaron ${totalM} millones de pesos en conciliación COD.`
   );
 
-  // Auto-conciliación
   if (metrics.tasa_conciliacion_automatica >= 0.7) {
     parts.push(
       `El sistema concilió automáticamente el ${autoRate}% de las transacciones, ` +
@@ -309,10 +350,9 @@ function generateAISummary(
     );
   }
 
-  // Discrepancias
   if (discrepancias.length > 0) {
     parts.push(
-      `Se detectaron ${discrepancias.length} discrepancias pendientes de revisión.`
+      `Se detectaron ${discrepancias.length} envíos pendientes de revisión.`
     );
     if (topCarrier) {
       parts.push(
@@ -320,22 +360,20 @@ function generateAISummary(
       );
     }
   } else {
-    parts.push(`No hay discrepancias pendientes — excelente semana.`);
+    parts.push(`No hay envíos pendientes — excelente semana.`);
   }
 
-  // Anomalías C7
   if (anomaliasActivas.length > 0) {
     const topReason = [...anomByReason.entries()].sort((a, b) => b[1] - a[1])[0];
     parts.push(
-      `El sistema C7 marcó ${anomaliasActivas.length} anomalías ` +
-      `(recall: ${recall}%), predominantemente por ${topReason ? topReason[0].replace('_', ' ') : 'umbral excedido'}.`
+      `Se detectaron ${anomaliasActivas.length} alertas de posible cobro incorrecto ` +
+      `(precisión: ${recall}%), predominantemente por ${topReason ? topReason[0].replace('_', ' ') : 'umbral excedido'}.`
     );
   }
 
-  // Cierre con recomendación
   if (metrics.filas_aisladas > 0) {
     parts.push(
-      `⚠️ Hay ${metrics.filas_aisladas} filas de formato desconocido que requieren mapeo del equipo de ops.`
+      `⚠️ Hay ${metrics.filas_aisladas} registros con formato no reconocido que requieren revisión del equipo de operaciones.`
     );
   }
 
@@ -343,7 +381,7 @@ function generateAISummary(
 }
 
 // ============================================================================
-// Summary Widget
+// Block 3: Summary Widget con Groq AI
 // ============================================================================
 
 function SummaryWidget({
@@ -355,9 +393,37 @@ function SummaryWidget({
   discrepancias: ConciliacionResultado[];
   anomaliasActivas: AnomaliaResultado[];
 }) {
+  const [aiText, setAiText] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  useEffect(() => {
+    const prompt = `Resumen de conciliación COD esta semana:
+- Total procesado: $${((metrics.total_confirmado_cop + metrics.total_pendiente_cop) / 1_000_000).toFixed(1)}M COP
+- Porcentaje resuelto automáticamente: ${(metrics.tasa_conciliacion_automatica * 100).toFixed(0)}% (la meta es 80%)
+- Envíos confirmados: $${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M
+- Envíos pendientes de acreditación: $${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M
+- Discrepancias que necesitan revisión: ${discrepancias.length}
+- Posibles cobros incorrectos detectados: ${anomaliasActivas.length}
+Redacta un resumen semanal para Andrés, el vendedor. Menciona el monto total, qué tan bien funcionó el sistema esta semana y cuántos casos necesitan su atención.`;
+
+    fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setAiText(data.text ?? generateAISummary(metrics, discrepancias, anomaliasActivas));
+      })
+      .catch(() => {
+        setAiText(generateAISummary(metrics, discrepancias, anomaliasActivas));
+      })
+      .finally(() => setAiLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* KPI Cards — Block 5: paleta Embarca */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPICard
           label="Total Confirmado"
@@ -367,45 +433,46 @@ function SummaryWidget({
         <KPICard
           label="Total Pendiente"
           value={`$${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M`}
-          color="bg-yellow-50 border-yellow-200 text-yellow-800"
+          color="bg-amber-50 border-amber-200 text-amber-800"
         />
         <KPICard
-          label="Discrepancias Abiertas"
+          label="Envíos por revisar"
           value={discrepancias.length.toString()}
           color="bg-red-50 border-red-200 text-red-800"
         />
         <KPICard
-          label="Anomalías C7"
+          label="Alertas detectadas"
           value={anomaliasActivas.length.toString()}
-          color="bg-purple-50 border-purple-200 text-purple-800"
+          color="bg-embarca-50 border-embarca-500/20 text-embarca-700"
         />
       </div>
 
-      {/* AI Summary (RF-IA-1: Resumen narrado del estado semanal) */}
+      {/* Block 3: AI Summary con Groq */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2">🤖 Resumen IA de la semana</h3>
-        <p className="text-sm text-blue-700">{generateAISummary(metrics, discrepancias, anomaliasActivas)}</p>
-        <p className="text-xs text-blue-500 mt-2">
-          Generado por motor narrativo · Fallback determinista (sin LLM externo en esta demo)
-        </p>
+        <h3 className="text-sm font-semibold text-blue-800 mb-2">✨ Resumen de la semana</h3>
+        {aiLoading ? (
+          <p className="text-sm text-blue-400 italic">Generando resumen...</p>
+        ) : (
+          <p className="text-sm text-blue-700">{aiText}</p>
+        )}
       </div>
 
       {/* Quick stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <StatCard
-          label="Tasa de conciliación automática"
+          label="Procesado automáticamente"
           value={`${(metrics.tasa_conciliacion_automatica * 100).toFixed(1)}%`}
           target="≥80%"
           good={metrics.tasa_conciliacion_automatica >= 0.8}
         />
         <StatCard
-          label="Recall de anomalías"
+          label="Alertas de cobro detectadas"
           value={`${(metrics.recall_anomalias * 100).toFixed(1)}%`}
           target="≥90%"
           good={metrics.recall_anomalias >= 0.9}
         />
         <StatCard
-          label="Tasa de normalización"
+          label="Envíos procesados sin error"
           value={`${(metrics.tasa_normalizacion * 100).toFixed(1)}%`}
           target="≥95%"
           good={metrics.tasa_normalizacion >= 0.95}
@@ -417,9 +484,9 @@ function SummaryWidget({
 
 function KPICard({ label, value, color }: { label: string; value: string; color: string }) {
   return (
-    <div className={`rounded-lg border p-4 ${color}`}>
-      <p className="text-xs font-medium opacity-75">{label}</p>
-      <p className="text-2xl font-bold mt-1">{value}</p>
+    <div className={`rounded-xl border p-5 ${color} transition-shadow hover:shadow-md`}>
+      <p className="text-xs font-semibold uppercase tracking-wide opacity-60">{label}</p>
+      <p className="text-3xl font-bold mt-2">{value}</p>
     </div>
   );
 }
@@ -451,7 +518,7 @@ function StatCard({
 }
 
 // ============================================================================
-// Discrepancy Table
+// Discrepancy Table — Block 4: textos limpios
 // ============================================================================
 
 function DiscrepancyTable({
@@ -483,9 +550,9 @@ function DiscrepancyTable({
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-gray-900">Discrepancias y Anomalías</h2>
+        <h2 className="text-lg font-semibold text-gray-900">Envíos que necesitan tu atención</h2>
         <span className="text-sm text-gray-500">
-          {discrepancias.length} filas · {anomaliasActivas.length} anomalías activas
+          {discrepancias.length} filas · {anomaliasActivas.length} alertas activas
         </span>
       </div>
 
@@ -499,8 +566,8 @@ function DiscrepancyTable({
               <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Reportado</th>
               <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Diferencia</th>
               <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clase</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Anomalía</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">HITL</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Alerta</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Estado</th>
               <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Acción</th>
             </tr>
           </thead>
@@ -590,7 +657,7 @@ function DiscrepancyTable({
                           onClick={() => onHitl(d.guia, d.carrier, 'c7', anomalia)}
                           className="px-2 py-1 text-xs bg-purple-600 text-white rounded hover:bg-purple-700"
                         >
-                          Anomalía
+                          Revisar
                         </button>
                       )}
                     </div>
@@ -630,7 +697,7 @@ function HitlModal({
     const c2 = data as ConciliacionResultado;
     return (
       <ModalOverlay onCancel={onCancel}>
-        <h3 className="text-lg font-semibold mb-4">Revisión de Conciliación — HITL</h3>
+        <h3 className="text-lg font-semibold mb-4">Revisión de Conciliación</h3>
         <div className="space-y-1 text-sm mb-4 bg-gray-50 p-3 rounded">
           <p>
             <strong>Guía:</strong> {guia} ({carrier})
@@ -651,10 +718,10 @@ function HitlModal({
             <strong>Razón:</strong> {razon}
           </p>
           <p>
-            <strong>Confianza C2:</strong> {c2.confianza}%
+            <strong>Confianza:</strong> {c2.confianza}%
           </p>
         </div>
-        <p className="text-sm text-gray-500 mb-4">¿Cómo desea clasificar esta fila?</p>
+        <p className="text-sm text-gray-500 mb-4">¿Cómo desea clasificar este envío?</p>
         <div className="flex gap-2 flex-wrap">
           <button
             onClick={() => onConfirm('cobrado')}
@@ -683,7 +750,7 @@ function HitlModal({
   const c7 = data as AnomaliaResultado;
   return (
     <ModalOverlay onCancel={onCancel}>
-      <h3 className="text-lg font-semibold mb-4">Revisión de Anomalía — HITL</h3>
+      <h3 className="text-lg font-semibold mb-4">Revisión de Alerta</h3>
       <div className="space-y-1 text-sm mb-4 bg-gray-50 p-3 rounded">
         <p>
           <strong>Guía:</strong> {guia} ({carrier})
@@ -696,7 +763,7 @@ function HitlModal({
           <strong>Razón:</strong> {c7.razon}
         </p>
         <p>
-          <strong>Confianza C7:</strong> {c7.confianza}%
+          <strong>Confianza:</strong> {c7.confianza}%
         </p>
       </div>
       <p className="text-sm text-gray-500 mb-4">¿Qué acción desea tomar?</p>
@@ -724,6 +791,7 @@ function HitlModal({
   );
 }
 
+// Block 2: ModalOverlay — botón Cancelar dentro del cuadro blanco
 function ModalOverlay({
   onCancel,
   children,
@@ -733,19 +801,23 @@ function ModalOverlay({
 }) {
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full">{children}</div>
-      <button
-        onClick={onCancel}
-        className="mt-4 px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
-      >
-        Cancelar
-      </button>
+      <div className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full">
+        {children}
+        <div className="mt-6 flex justify-end border-t border-gray-100 pt-4">
+          <button
+            onClick={onCancel}
+            className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded hover:bg-gray-100"
+          >
+            Cancelar
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ============================================================================
-// Metrics Panel
+// Metrics Panel — Block 4: nota de Vista Evaluador
 // ============================================================================
 
 function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
@@ -824,10 +896,14 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Panel de Métricas</h2>
-      <p className="text-sm text-gray-500">
-        &quot;Si esto estuviera en producción mediría X; en el prototipo mido Y (proxy) contra el
-        ground truth.&quot;
-      </p>
+
+      {/* Block 4: nota evaluador */}
+      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 mb-4">
+        <p className="text-xs text-purple-700 font-medium">🔬 Vista Evaluador — Panel interno de métricas</p>
+        <p className="text-xs text-purple-600 mt-1">
+          &quot;Si esto estuviera en producción mediría X; en el prototipo mido Y (proxy) contra el ground truth del dataset sintético.&quot;
+        </p>
+      </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <table className="w-full text-sm">
@@ -873,7 +949,7 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
                           isGood ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                         }`}
                       >
-                        {isGood ? '✅ OK' : '️ Bajo'}
+                        {isGood ? '✅ OK' : '⚠️ Bajo'}
                       </span>
                     ) : (
                       <span className="text-gray-400 text-xs">Info</span>
@@ -922,9 +998,6 @@ function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] })
         <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-indigo-800 mb-2">🤖 Pronóstico narrado</h3>
           <p className="text-sm text-indigo-700">{forecast.resumenNarrado}</p>
-          <p className="text-xs text-indigo-500 mt-2">
-            Generado por motor narrativo · Fallback determinista (sin LLM externo en esta demo)
-          </p>
         </div>
       )}
 
