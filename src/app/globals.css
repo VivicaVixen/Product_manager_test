@@ -17,3 +17,37 @@ body {
     )
     rgb(var(--background-start-rgb));
 }
+
+/* Print styles for export */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  .print\:hidden {
+    display: none !important;
+  }
+
+  header {
+    border-bottom: 2px solid #333 !important;
+  }
+
+  main {
+    background: white !important;
+  }
+
+  table {
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  .bg-gray-50, .bg-green-50, .bg-yellow-50, .bg-red-50, .bg-purple-50,
+  .bg-blue-50, .bg-orange-50 {
+    background: #f9f9f9 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}

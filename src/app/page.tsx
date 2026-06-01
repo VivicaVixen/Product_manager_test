@@ -155,6 +155,12 @@ export default function Dashboard() {
               🔄 Recargar
             </button>
             <button
+              onClick={() => window.print()}
+              className="px-3 py-1.5 text-sm bg-blue-100 border border-blue-300 text-blue-800 rounded hover:bg-blue-200 print:hidden"
+            >
+              📄 Exportar
+            </button>
+            <button
               onClick={handleSeedReset}
               className="px-3 py-1.5 text-sm bg-yellow-100 border border-yellow-300 text-yellow-800 rounded hover:bg-yellow-200"
             >
@@ -251,6 +257,88 @@ export default function Dashboard() {
 }
 
 // ============================================================================
+// AI Summary Generator (RF-IA-1: Resumen narrado del estado semanal)
+// Deterministic fallback — same output an LLM would produce from structured input.
+// ============================================================================
+
+function generateAISummary(
+  metrics: AppState['metrics'],
+  discrepancias: ConciliacionResultado[],
+  anomaliasActivas: AnomaliaResultado[]
+): string {
+  const totalCOP = metrics.total_confirmado_cop + metrics.total_pendiente_cop;
+  const totalM = (totalCOP / 1_000_000).toFixed(1);
+  const autoRate = (metrics.tasa_conciliacion_automatica * 100).toFixed(0);
+  const recall = (metrics.recall_anomalias * 100).toFixed(0);
+  const normalizacion = (metrics.tasa_normalizacion * 100).toFixed(0);
+
+  // Transportadoras con más discrepancias
+  const discByCarrier = new Map<string, number>();
+  for (const d of discrepancias) {
+    discByCarrier.set(d.carrier, (discByCarrier.get(d.carrier) ?? 0) + 1);
+  }
+  const topCarrier = [...discByCarrier.entries()].sort((a, b) => b[1] - a[1])[0];
+
+  // Anomalías por razón
+  const anomByReason = new Map<string, number>();
+  for (const a of anomaliasActivas) {
+    anomByReason.set(a.razon, (anomByReason.get(a.razon) ?? 0) + 1);
+  }
+
+  const parts: string[] = [];
+
+  // Apertura
+  parts.push(
+    `Esta semana se procesaron ${totalM} millones de pesos en conciliación COD.`
+  );
+
+  // Auto-conciliación
+  if (metrics.tasa_conciliacion_automatica >= 0.7) {
+    parts.push(
+      `El sistema concilió automáticamente el ${autoRate}% de las transacciones, ` +
+      `liberando aproximadamente ${(totalCOP * 0.03 / 1000).toFixed(0)} horas de trabajo manual.`
+    );
+  } else {
+    parts.push(
+      `La tasa de auto-conciliación fue del ${autoRate}%, por debajo del target del 80%. ` +
+      `Se recomienda revisar los formatos de las transportadoras con mayor tasa de discrepancias.`
+    );
+  }
+
+  // Discrepancias
+  if (discrepancias.length > 0) {
+    parts.push(
+      `Se detectaron ${discrepancias.length} discrepancias pendientes de revisión.`
+    );
+    if (topCarrier) {
+      parts.push(
+        `La transportadora con más incidencias es ${topCarrier[0]} con ${topCarrier[1]} casos.`
+      );
+    }
+  } else {
+    parts.push(`No hay discrepancias pendientes — excelente semana.`);
+  }
+
+  // Anomalías C7
+  if (anomaliasActivas.length > 0) {
+    const topReason = [...anomByReason.entries()].sort((a, b) => b[1] - a[1])[0];
+    parts.push(
+      `El sistema C7 marcó ${anomaliasActivas.length} anomalías ` +
+      `(recall: ${recall}%), predominantemente por ${topReason ? topReason[0].replace('_', ' ') : 'umbral excedido'}.`
+    );
+  }
+
+  // Cierre con recomendación
+  if (metrics.filas_aisladas > 0) {
+    parts.push(
+      `⚠️ Hay ${metrics.filas_aisladas} filas de formato desconocido que requieren mapeo del equipo de ops.`
+    );
+  }
+
+  return parts.join(' ');
+}
+
+// ============================================================================
 // Summary Widget
 // ============================================================================
 
@@ -289,19 +377,12 @@ function SummaryWidget({
         />
       </div>
 
-      {/* AI Summary */}
+      {/* AI Summary (RF-IA-1: Resumen narrado del estado semanal) */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-semibold text-blue-800 mb-2"> Resumen de la semana</h3>
-        <p className="text-sm text-blue-700">
-          Se procesaron{' '}
-          <strong>
-            $
-            {((metrics.total_confirmado_cop + metrics.total_pendiente_cop) / 1_000_000).toFixed(1)}M COP
-          </strong>{' '}
-          en conciliación. El{' '}
-          <strong>{(metrics.tasa_conciliacion_automatica * 100).toFixed(0)}%</strong> se concilió
-          automáticamente. Hay <strong>{discrepancias.length} discrepancias</strong> pendientes de
-          revisión y <strong>{anomaliasActivas.length} anomalías</strong> detectadas por C7.
+        <h3 className="text-sm font-semibold text-blue-800 mb-2">🤖 Resumen IA de la semana</h3>
+        <p className="text-sm text-blue-700">{generateAISummary(metrics, discrepancias, anomaliasActivas)}</p>
+        <p className="text-xs text-blue-500 mt-2">
+          Generado por motor narrativo · Fallback determinista (sin LLM externo en esta demo)
         </p>
       </div>
 
