@@ -31,6 +31,14 @@
 ### Commit `5a9ed19` — Fix horas ahorradas en resumen IA
 - Resumen narrado mostraba ~2279 horas ahorradas (imposible). Fórmula corregida de `totalCOP * 0.03 / 1000` a `(totalCOP / 1_000_000) * 0.07` → ~5.3 horas para 76M COP, rango realista 4-6h.
 
+### Commit `14724c9` — Bloques 7-10 (experiencia, multi-persona, tabla avanzada, IA mejorada)
+- **E1:** North star visible — bloque de horas ahorradas bajo los KPIs, traduciendo auto-conciliación a tiempo real (~X horas menos en Excel vs 3-6h manual).
+- **E2:** Hero moment — resumen IA de Groq es lo PRIMERO que ve el evaluador (no los KPIs). Badge de HITL pendiente con botón "Revisar ahora →" si hay decisiones por tomar. Reordenado: IA hero → HITL badge → north star → KPIs → quick stats.
+- **E3:** Copiloto de discrepancias — al abrir modal HITL, Groq genera explicación personalizada en 1-2 seg de por qué se marcó esa guía y qué recomienda. Fallback silencioso si Groq falla. Touchpoint `RF-IA-2` implementado.
+- **B8:** Multi-persona switcher — dropdown en header para cambiar entre 4 personas (Andrés, Carolina, Tienda Ropa BCN, MegaStore). Cada persona tiene slice/multiplier distinto del dataset. API GET acepta `?persona=` para ajustar volumen y montos.
+- **B9:** Tabla avanzada — tooltips hover en headers de columna, campo de búsqueda por número de guía, click en header ordena ascendente/descendente con flechas visuales.
+- **B10:** Prompts IA multi-bloque — system prompt actualizado con reglas de formato (2-4 bloques, emojis sobrios, máx 4 oraciones, acción concreta). Resumen semanal incluye análisis por carrier. Pronóstico de caja identifica carrier más problemático y más confiable. Renderizado multi-bloque con `split('\n\n')`.
+
 ---
 
 ## Sección 1 · Prototipo Funcionando
