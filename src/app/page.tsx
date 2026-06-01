@@ -21,6 +21,19 @@ interface PipelineResponse {
   error?: string;
 }
 
+// O2: Nombres legibles para carriers en UI
+const CARRIER_DISPLAY_NAMES: Record<string, string> = {
+  interrapidisimo: 'Interrapidísimo',
+  coordinadora: 'Coordinadora',
+  servientrega: 'Servientrega',
+  envia: 'Envía',
+  tcc: 'TCC',
+};
+
+function displayCarrier(carrier: string): string {
+  return CARRIER_DISPLAY_NAMES[carrier] ?? carrier;
+}
+
 // ============================================================================
 // Componentes
 // ============================================================================
@@ -116,7 +129,15 @@ export default function Dashboard() {
     return (
       <main className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-embarca mx-auto mb-4" />
+          {/* O3: Spinner con estilo Embarca */}
+          <div className="relative mx-auto mb-6" style={{ width: 80, height: 80 }}>
+            <div className="absolute inset-0 rounded-full border-4 border-embarca-50/60" />
+            <div className="absolute inset-0 rounded-full border-4 border-transparent border-t-embarca-500 animate-spin" />
+            <div className="absolute inset-0 flex items-center justify-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/logo.svg" alt="embarca" className="h-6 w-auto opacity-80" />
+            </div>
+          </div>
           <p className="text-gray-600">Cargando datos de conciliación...</p>
         </div>
       </main>
@@ -423,27 +444,31 @@ Redacta un resumen semanal para Andrés, el vendedor. Menciona el monto total, q
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards — Block 5: paleta Embarca */}
+      {/* KPI Cards — Block 5: paleta Embarca + O4: tooltips */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <KPICard
           label="Total Confirmado"
           value={`$${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M`}
           color="bg-green-50 border-green-200 text-green-800"
+          tooltip="Monto total de envíos cuya entrega y pago fueron verificados correctamente"
         />
         <KPICard
           label="Total Pendiente"
           value={`$${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M`}
           color="bg-amber-50 border-amber-200 text-amber-800"
+          tooltip="Envíos entregados cuyo pago aún no ha sido acreditado por la transportadora"
         />
         <KPICard
           label="Envíos por revisar"
           value={discrepancias.length.toString()}
           color="bg-red-50 border-red-200 text-red-800"
+          tooltip="Casos donde el monto esperado y el reportado no coinciden — requieren tu decisión"
         />
         <KPICard
           label="Alertas detectadas"
           value={anomaliasActivas.length.toString()}
           color="bg-embarca-50 border-embarca-500/20 text-embarca-700"
+          tooltip="Posibles cobros incorrectos detectados automáticamente por el sistema"
         />
       </div>
 
@@ -482,11 +507,24 @@ Redacta un resumen semanal para Andrés, el vendedor. Menciona el monto total, q
   );
 }
 
-function KPICard({ label, value, color }: { label: string; value: string; color: string }) {
+function KPICard({ label, value, color, tooltip }: { label: string; value: string; color: string; tooltip?: string }) {
   return (
-    <div className={`rounded-xl border p-5 ${color} transition-shadow hover:shadow-md`}>
+    <div
+      className={`rounded-xl border p-5 ${color} transition-shadow hover:shadow-md relative group`}
+      title={tooltip}
+    >
       <p className="text-xs font-semibold uppercase tracking-wide opacity-60">{label}</p>
       <p className="text-3xl font-bold mt-2">{value}</p>
+      {tooltip && (
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-50">
+          <div className="bg-gray-900 text-white text-xs rounded-lg px-3 py-2 whitespace-pre-wrap max-w-xs text-center shadow-lg">
+            {tooltip}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1">
+              <div className="border-4 border-transparent border-t-gray-900" />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -586,7 +624,7 @@ function DiscrepancyTable({
                   }`}
                 >
                   <td className="px-3 py-2 font-mono text-xs">{d.guia}</td>
-                  <td className="px-3 py-2 text-xs">{d.carrier}</td>
+                  <td className="px-3 py-2 text-xs">{displayCarrier(d.carrier)}</td>
                   <td className="px-3 py-2 text-right text-xs">
                     {d.monto_esperado?.toLocaleString('es-CO') ?? '—'}
                   </td>
@@ -700,7 +738,7 @@ function HitlModal({
         <h3 className="text-lg font-semibold mb-4">Revisión de Conciliación</h3>
         <div className="space-y-1 text-sm mb-4 bg-gray-50 p-3 rounded">
           <p>
-            <strong>Guía:</strong> {guia} ({carrier})
+            <strong>Guía:</strong> {guia} ({displayCarrier(carrier)})
           </p>
           <p>
             <strong>Esperado:</strong> ${c2.monto_esperado?.toLocaleString('es-CO')}
@@ -753,7 +791,7 @@ function HitlModal({
       <h3 className="text-lg font-semibold mb-4">Revisión de Alerta</h3>
       <div className="space-y-1 text-sm mb-4 bg-gray-50 p-3 rounded">
         <p>
-          <strong>Guía:</strong> {guia} ({carrier})
+          <strong>Guía:</strong> {guia} ({displayCarrier(carrier)})
         </p>
         <p>
           <strong>Diferencia:</strong>{' '}

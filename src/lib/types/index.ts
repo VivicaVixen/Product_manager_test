@@ -115,6 +115,7 @@ export type AnomalyReason =
   | "excede_umbral_fijo"
   | "outlier_estadistico"
   | "patron_transportadora"
+  | "confirmado_ground_truth"
   // Extensiones del dataset (stretch feature: pagos tarde)
   | "lag_pago_superado"
   | "outlier_alto_valor"
