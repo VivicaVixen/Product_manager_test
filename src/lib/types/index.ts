@@ -104,13 +104,21 @@ export type DiscrepancyType =
   | "pago_faltante"
   | "pago_huerfano"
   | "guia_duplicada"
-  | "monto_ambiguo";
+  | "monto_ambiguo"
+  // Extensiones del dataset generado (casos adicionales válidos)
+  | "novedad_texto_libre"
+  | "campo_faltante"
+  | "discrepancia_bajo_umbral";
 
 export type AnomalyReason =
   | "ninguno"
   | "excede_umbral_fijo"
   | "outlier_estadistico"
-  | "patron_transportadora";
+  | "patron_transportadora"
+  // Extensiones del dataset (stretch feature: pagos tarde)
+  | "lag_pago_superado"
+  | "outlier_alto_valor"
+  | "retraso_excesivo";
 
 export type C2Class = "cobrado" | "pendiente_acreditacion" | "discrepancia";
 
