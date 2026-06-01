@@ -18,6 +18,7 @@ import type {
 import { runC1, normalizeGuiaForCarrier } from './c1_normalize';
 import { runC2 } from './c2_conciliate';
 import { runC7 } from './c7_anomalies';
+import { runCashForecast, type CashForecast } from './cash_forecast';
 
 /**
  * Ejecuta el pipeline completo sobre un conjunto de bundles.
@@ -60,6 +61,9 @@ export function runPipeline(
   // C7: Anomalías
   const c7Result = runC7(c2Result.resultados, groundTruth, prevHitl);
 
+  // Stretch: Pronóstico de caja COD
+  const cashForecast = runCashForecast(orders, groundTruth, c2Result.resultados);
+
   // Calcular métricas de dashboard
   const metrics = calculateMetrics(
     c2Result.resultados,
@@ -82,6 +86,7 @@ export function runPipeline(
     anomalias: c7Result.anomalias,
     hitlRecords: prevHitl,
     metrics,
+    cashForecast,
   };
 }
 

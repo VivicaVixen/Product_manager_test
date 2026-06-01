@@ -146,6 +146,30 @@ export interface CarrierRaw {
 }
 
 // ============================================================================
+// Pronóstico de caja COD (stretch feature)
+// ============================================================================
+
+export interface CarrierForecast {
+  carrier: CarrierId;
+  lagMedianoHistorico: number;
+  lagMedianoActual: number;
+  totalPorCobrarCOP: number;
+  ordenesPendientes: number;
+  proyeccionEntradaCOP: number;
+  diasProyectadosEntrada: number;
+  semafaro: 'verde' | 'amarillo' | 'rojo';
+  senal: string;
+}
+
+export interface CashForecast {
+  carriers: CarrierForecast[];
+  totalPorCobrarCOP: number;
+  totalProyectadoCOP: number;
+  riesgoAtrasoCOP: number;
+  resumenNarrado: string;
+}
+
+// ============================================================================
 // Estado global de la aplicación (en memoria)
 // ============================================================================
 
@@ -160,6 +184,7 @@ export interface AppState {
   anomalias: AnomaliaResultado[];
   hitlRecords: HitlRecord[];
   metrics: AppMetrics;
+  cashForecast: CashForecast;  // Stretch: pronóstico de caja
 }
 
 export interface AppMetrics {

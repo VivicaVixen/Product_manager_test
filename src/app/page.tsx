@@ -28,7 +28,7 @@ export default function Dashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'resumen' | 'discrepancias' | 'metricas'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'discrepancias' | 'pronostico' | 'metricas'>('resumen');
   const [hitlModal, setHitlModal] = useState<{
     guia: string;
     carrier: string;
@@ -197,6 +197,7 @@ export default function Dashboard() {
           {[
             { key: 'resumen' as const, label: ' Resumen' },
             { key: 'discrepancias' as const, label: ` Discrepancias (${discrepancias.length})` },
+            { key: 'pronostico' as const, label: '💰 Pronóstico Caja' },
             { key: 'metricas' as const, label: '📈 Métricas' },
           ].map((tab) => (
             <button
@@ -238,6 +239,9 @@ export default function Dashboard() {
               })
             }
           />
+        )}
+        {activeTab === 'pronostico' && (
+          <CashForecastPanel forecast={state.cashForecast} />
         )}
         {activeTab === 'metricas' && <MetricsPanel metrics={metrics} />}
       </div>
@@ -878,6 +882,99 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Cash Forecast Panel (Stretch Feature: Pronóstico de caja COD)
+// ============================================================================
+
+function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] }) {
+  if (!forecast || forecast.carriers.length === 0) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-gray-900">Pronóstico de Caja COD</h2>
+        <p className="text-sm text-gray-500">Feature stretch — en desarrollo.</p>
+      </div>
+    );
+  }
+
+  const semaforoIcon: Record<string, string> = { verde: '🟢', amarillo: '🟡', rojo: '' };
+  const semaforoBg: Record<string, string> = {
+    verde: 'bg-green-50 border-green-200',
+    amarillo: 'bg-yellow-50 border-yellow-200',
+    rojo: 'bg-red-50 border-red-200',
+  };
+
+  return (
+    <div className="space-y-4">
+      <h2 className="text-lg font-semibold text-gray-900">💰 Pronóstico de Caja COD</h2>
+      <p className="text-sm text-gray-500">
+        Proyección de remesa por transportadora basada en lag histórico de pago.
+      </p>
+
+      {/* AI Narrative */}
+      {forecast.resumenNarrado && (
+        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-indigo-800 mb-2">🤖 Pronóstico narrado</h3>
+          <p className="text-sm text-indigo-700">{forecast.resumenNarrado}</p>
+          <p className="text-xs text-indigo-500 mt-2">
+            Generado por motor narrativo · Fallback determinista (sin LLM externo en esta demo)
+          </p>
+        </div>
+      )}
+
+      {/* Summary KPIs */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <KPICard
+          label="Total por cobrar"
+          value={`$${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M`}
+          color="bg-yellow-50 border-yellow-200 text-yellow-800"
+        />
+        <KPICard
+          label="Proyección de entrada"
+          value={`$${(forecast.totalProyectadoCOP / 1_000_000).toFixed(1)}M`}
+          color="bg-green-50 border-green-200 text-green-800"
+        />
+        <KPICard
+          label="En riesgo de atraso"
+          value={`$${(forecast.riesgoAtrasoCOP / 1_000_000).toFixed(1)}M`}
+          color="bg-red-50 border-red-200 text-red-800"
+        />
+      </div>
+
+      {/* Carrier Table */}
+      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Carrier</th>
+              <th className="text-center px-4 py-2 font-medium text-gray-600">Semáforo</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-600">Lag histórico</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-600">Lag actual</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-600">Por cobrar</th>
+              <th className="text-right px-4 py-2 font-medium text-gray-600">Órdenes</th>
+              <th className="text-left px-4 py-2 font-medium text-gray-600">Señal</th>
+            </tr>
+          </thead>
+          <tbody>
+            {forecast.carriers.map((c) => (
+              <tr key={c.carrier} className={`border-b border-gray-100 ${semaforoBg[c.semafaro] ?? ''}`}>
+                <td className="px-4 py-2 font-medium">{c.carrier}</td>
+                <td className="px-4 py-2 text-center text-lg">{semaforoIcon[c.semafaro]}</td>
+                <td className="px-4 py-2 text-right">{c.lagMedianoHistorico}d</td>
+                <td className="px-4 py-2 text-right">{c.lagMedianoActual}d</td>
+                <td className="px-4 py-2 text-right font-mono">
+                  ${c.totalPorCobrarCOP.toLocaleString('es-CO')}
+                </td>
+                <td className="px-4 py-2 text-right">{c.ordenesPendientes}</td>
+                <td className="px-4 py-2 text-xs text-gray-600">{c.senal}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

@@ -55,6 +55,13 @@ export function consolidateBundles(bundles: BundleInput[]): AppState {
     anomalias: [],
     hitlRecords: [],
     metrics: emptyMetrics(),
+    cashForecast: {
+      carriers: [],
+      totalPorCobrarCOP: 0,
+      totalProyectadoCOP: 0,
+      riesgoAtrasoCOP: 0,
+      resumenNarrado: '',
+    },
   };
 }
 
@@ -73,6 +80,13 @@ export function emptyState(): AppState {
     anomalias: [],
     hitlRecords: [],
     metrics: emptyMetrics(),
+    cashForecast: {
+      carriers: [],
+      totalPorCobrarCOP: 0,
+      totalProyectadoCOP: 0,
+      riesgoAtrasoCOP: 0,
+      resumenNarrado: '',
+    },
   };
 }
 
