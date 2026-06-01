@@ -1,8 +1,50 @@
 # Bitácora de Construcción — Conciliador Inteligente Embarca
 
 **Candidato:** Victor Camilo Avendaño Forero
-**Proyecto:** Embarca IA-First · Apuesta #1: Conciliador Inteligente (C1+C2+C7+C3)
+**Proyecto:** Embarca IA-First · Apuesta #1: Conciliador Inteligente (C1+C2+C7+C3) → v3 AI-First
 **Fecha:** 2026-06-01 · **Presentación:** 2026-06-03, 3:45 PM
+
+---
+
+## Registro de cambios v3 (2026-06-02) — Roadmap AI-First
+
+### Commit `6fc5034` — Roadmap v3 completo: M1+M2+M4+M5 (todos detrás de feature flags)
+
+**Bloque 0: Feature flags** — `lib/flags.ts` control central, default `false` = v3.0 pixel-idéntica.
+
+**M1 — Redactor de Reclamaciones (cierra loop detectar→decidir→actuar):**
+- `lib/types_reclamacion.ts` — tipos Reclamacion (guía, carrier, montos, estado, texto IA).
+- `lib/reclamacion_template.ts` — fallback determinista si Groq falla.
+- `/api/ai` — nuevo `mode: 'reclamacion'` (Groq redacta, nunca inventa cifras, timeout 3s).
+- HITL — al elegir "Reclamar a transportadora" (C7), genera Reclamacion en estado `borrador`.
+- `components/ReclamacionesPanel.tsx` — tab condicional "Reclamaciones" con cards editables, botones "Marcar revisada/enviada", "Copiar texto".
+- KPI: "COP en disputa gestionados" = suma de diferencias en estado `revisada`+`enviada`.
+
+**M2 — Predicción de SLA/Lag por Carrier×Ciudad (semilla viva de Carolina):**
+- `data/historico_lag.ts` — SIMULADO: histórico sintético 4 carriers × 5 ciudades × 12 semanas.
+- `lib/sla_predictor.ts` — motor determinista: media móvil + desviación estándar → bandas de confianza, semáforo.
+- `/api/ai` — nuevo `mode: 'sla_predict'` (Groq narra predicción ya calculada).
+- `components/PrediccionSLAPanel.tsx` — matriz 4×5 con semáforo, lag esperado ± banda, tasa fallo, confianza, narrativa IA. Disclaimer de simulación visible.
+
+**M4 — Auto-mapeo Asistido de Formatos TCC:**
+- `lib/tcc_reader.ts` — lee filas TCC aisladas por C1 sin modificarlo.
+- `/api/ai` — nuevo `mode: 'automap'` (schema matching difuso, devuelve JSON).
+- `lib/automap_apply.ts` — aplicador determinista del mapeo aprobado.
+- `components/AutomapModal.tsx` — tabla campo canónico ← columna origen (editable), preview, aprobar/cancelar.
+- Filas mapeadas se muestran en bloque "Formatos recuperados" sin reinyectar al pipeline C2.
+
+**M5 — Loop HITL → Recalibración de Umbral C7:**
+- `lib/hitl_feedback.ts` — registro de decisiones HITL en localStorage.
+- `lib/threshold_calibrator.ts` — recalibrador por carrier (percentiles, sin ML), mínimo 5 muestras.
+- `components/CalibracionPanel.tsx` — panel evaluador con umbral actual vs sugerido, recall/precisión estimados, mini barra confirm/descart.
+- `thresholdOverride` opcional en cliente (server intacto).
+- Disclaimer: loop cableado, en prod requiere histórico real.
+
+**Principio cumplido:** Todo aditivo. `c7_anomalies.ts` sin diffs de lógica. Flags OFF = v3.0 idéntica. Build verde.
+
+**Fixes defensivos incluidos (no rompen lógica):**
+- `pipeline.ts` — NaN coalescing seguro en `calculateMetrics` (`num()` trata null/undefined/NaN como 0).
+- `normalize.ts` — parseMontoCOP y parseFecha ahora limpian comillas y garantizan no-NaN.
 
 ---
 
