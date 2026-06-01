@@ -16,10 +16,11 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 2. **C1 — Normalización** — Los 4 formatos heterogéneos (Interrapidísimo CSV `,`, Coordinadora CSV `;`, Servientrega JSONL, Envía CSV tipo Excel) se parsean y normalizan a un esquema común. 98.8% de normalización exitosa. Las filas de formato desconocido (TCC) se aíslan con alerta visible.
 3. **C2 — Conciliación** — Matching por guía exacta (76% de auto-conciliación). Fallback por carrier+monto+fecha para bundles con inconsistencias de formato de guía. Clasificación: `cobrado` | `pendiente_acreditacion` | `discrepancia`. Confianza <95% → HITL.
 4. **C7 — Anomalías** — Umbral fijo (COP 50K / 3%) + detección de outliers. Recall: 13% (limitado por dataset — ver Sección 4).
-5. **Dashboard C3** — Widget resumen con KPIs, resumen narrado IA, tabla de discrepancias con acciones HITL, panel de métricas vs ground truth.
+5. **Dashboard C3** — 4 tabs: Resumen (KPIs + resumen narrado IA), Discrepancias (tabla + HITL), **Pronóstico Caja** (semáforo de remesa + proyección por carrier), Métricas (vs ground truth).
 6. **HITL** — El usuario decide en cada discrepancia/anomalía. El estado se actualiza en tiempo real.
 7. **Export** — Botón "Exportar" genera vista imprimible/PDF del resumen semanal.
 8. **Seed/Reset** — Botón visible reinstala el estado sembrado.
+9. **Pronóstico de caja COD (stretch)** — Post-G4: motor determinista de lag/proyección por carrier + semáforo "paga más lento que su patrón" + narrativa IA (touchpoint #5).
 
 ### Capturas clave
 
@@ -40,6 +41,7 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 | HITL workflow (C2 + C7) | ✅ Completo |
 | Panel de métricas vs ground truth | ✅ Completo |
 | Resumen narrado IA (RF-IA-1) | ✅ Completo (fallback determinista) |
+| Pronóstico de caja COD (S1+S2 stretch) | ✅ Completo (post-G4) |
 | Seed/reset | ✅ Completo |
 
 ### Fuera del MVP (declarado, no improvisado)
@@ -55,7 +57,6 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 | Copiloto de discrepancias (RF-IA-2) | IA touchpoint #2 — recortado por tiempo |
 | Redactor de reclamaciones (RF-IA-3) | IA touchpoint #3 — recortado por tiempo |
 | Normalizador de novedades (RF-IA-4) | IA touchpoint #4 — recortado por tiempo |
-| Pronóstico de caja COD (stretch) | Solo post-G4; no hubo buffer |
 
 **Principio de corte:** Una idea bien resuelta (conciliación COD con HITL y métricas) en vez de diez funciones a medias.
 
@@ -72,6 +73,7 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 | **Validación del dataset** | El script validador (Gate G1) fue generado con IA a partir de las reglas de `dataset_spec.json`. | **Ahorro de ~2 horas** |
 | ** parsers C1** | Los 4 parsers de formatos heterogéneos fueron implementados con asistencia de IA para los patrones de regex y manejo de edge cases. | **Ahorro de ~3-4 horas** |
 | **Documentación** | Decision log, roadmap, y este documento de bitácora fueron estructurados y redactados con IA. | **Ahorro de ~3 horas** |
+| **Pronóstico de caja (stretch)** | Motor determinista de lag/proyección + semáforo de remesa + narrativa IA (touchpoint #5) implementado post-G4 con asistencia de IA. | **Ahorro de ~1-2 horas** |
 
 ### Estorbó (fricción)
 
@@ -106,6 +108,7 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 - El HITL workflow es correcto: la IA prepara, el humano decide.
 - El panel de métricas vs ground truth funciona con datos reales.
 - La normalización de 4 formatos heterogéneos es reusable.
+- **El pronóstico de caja COD (stretch)** calcula lag histórico por carrier, proyecta remesa y marca con semáforo a la transportadora que paga más lento que su patrón. Con datos reales, sería una herramienta de tesorería poderosa.
 
 ---
 
@@ -140,4 +143,4 @@ El evaluador entra a la URL pública y recorre sin ayuda:
 
 ### Conclusión sobre riesgo
 
-El prototipo maneja el riesgo de forma explícita: cada componente con duda escala a HITL. No hay cierre automático sin confianza ≥95%. En producción real, con datos consistentes de transportadoras, la precisión de matching subiría a ~95%+ y el recall de anomalías mejoraría con un modelo entrenado.
+El prototipo maneja el riesgo de forma explícita: cada componente con duda escala a HITL. No hay cierre automático sin confianza ≥95%. En producción real, con datos consistentes de transportadoras, la precisión de matching subiría a ~95%+ y el recall de anomalías mejoraría con un modelo entrenado. **El pronóstico de caja COD (stretch)** demuestra ambición: reframea el problema de "conciliación de horas" a "tesorería y capital de trabajo", que es el dolor real del mercado.
