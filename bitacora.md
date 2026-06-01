@@ -236,7 +236,7 @@ El prototipo maneja el riesgo de forma explícita: cada componente con duda esca
 
 ## Rediseño visual — Dark Mode UI (2026-06-01)
 
-### Commit `pending` — Rediseño completo de interfaz: dark mode de alto impacto
+### Commit `584bb61` — Rediseño completo de interfaz: dark mode de alto impacto
 
 **Motivación:** Producto funcional para prueba técnica requiere interfaz con impacto visual. Se cambia de tema claro (blanco/gris) a tema oscuro profesional sin tocar ninguna funcionalidad.
 
