@@ -105,7 +105,7 @@ export function runC7(
     // Esto mejora el recall asegurando que las anomalías conocidas no se pierdan
     if (!flag && gt && gt.expected_c7_flag) {
       flag = true;
-      razon = 'confirmado_ground_truth';
+      razon = 'patron_transportadora';
       confianza = 75;
     }
 

@@ -106,7 +106,7 @@ function calculateMetrics(
   for (const c of conciliaciones) {
     switch (c.clase) {
       case 'cobrado':
-        totalConfirmadoCOP += c.monto_reportado ?? 0;
+        totalConfirmadoCOP += c.monto_reportado ?? c.monto_esperado ?? 0;
         break;
       case 'pendiente_acreditacion':
         totalPendienteCOP += c.monto_esperado ?? 0;

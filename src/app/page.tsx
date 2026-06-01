@@ -243,23 +243,26 @@ export default function Dashboard() {
         </div>
       </header>
 
-      {/* Block 4: Alertas C1 — texto limpio para Vista Producto */}
+      {/* F3: Alertas C1 — mensaje amigable siempre, detalles solo evaluador */}
       {c1Alerts.length > 0 && (
         <div className="max-w-7xl mx-auto px-6 pt-4">
           <div className="bg-orange-50 border border-orange-200 rounded-lg p-3">
             <p className="text-sm text-orange-800 font-medium">
-              ⚠️ {c1Alerts.length} transportadora{c1Alerts.length > 1 ? 's' : ''} con formato no reconocido — se están revisando
+              ⚠️ {c1Alerts.length} envío{c1Alerts.length > 1 ? 's' : ''} con transportadora no reconocida — están siendo revisados por el equipo de operaciones.
             </p>
-            <details className="mt-1">
-              <summary className="text-xs text-orange-600 cursor-pointer">Ver detalles</summary>
-              <ul className="mt-1 text-xs text-orange-700 space-y-1">
-                {c1Alerts.map((a, i) => (
-                  <li key={i}>
-                    <code className="bg-orange-100 px-1 rounded">{a.guia_o_linea}</code> — {a.razon}
-                  </li>
-                ))}
-              </ul>
-            </details>
+            {/* Detalle técnico SOLO en modo evaluador */}
+            {modoEvaluador && (
+              <details className="mt-1">
+                <summary className="text-xs text-orange-600 cursor-pointer">Ver detalles técnicos (vista evaluador)</summary>
+                <ul className="mt-1 text-xs text-orange-700 space-y-1 font-mono">
+                  {c1Alerts.map((a, i) => (
+                    <li key={i}>
+                      <code className="bg-orange-100 px-1 rounded">{a.guia_o_linea}</code> — {a.razon}
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         </div>
       )}
@@ -575,6 +578,10 @@ function DiscrepancyTable({
     data: ConciliacionResultado | AnomaliaResultado
   ) => void;
 }) {
+  // F4: Filtros
+  const [filtroCarrier, setFiltroCarrier] = useState<string>('todos');
+  const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+
   const hitlMap = new Map<string, HitlRecord>();
   for (const hr of hitlRecords) {
     hitlMap.set(`${hr.tipo}::${hr.guia}`, hr);
@@ -585,12 +592,67 @@ function DiscrepancyTable({
     anomaliesByGuia.set(a.guia, a);
   }
 
+  const carriersUnicos = Array.from(new Set(discrepancias.map((d) => d.carrier))).sort();
+
+  const discrepanciasFiltradas = discrepancias.filter((d) => {
+    const passCarrier = filtroCarrier === 'todos' || d.carrier === filtroCarrier;
+    const hitlC2 = hitlMap.get(`c2::${d.guia}`);
+    const resuelto = hitlC2?.decision;
+    const anomalia = anomaliesByGuia.get(d.guia);
+    const passEstado =
+      filtroEstado === 'todos' ||
+      (filtroEstado === 'pendiente' && !resuelto && d.needs_hitl) ||
+      (filtroEstado === 'anomalia' && !!anomalia) ||
+      (filtroEstado === 'resuelto' && !!resuelto);
+    return passCarrier && passEstado;
+  });
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">Envíos que necesitan tu atención</h2>
-        <span className="text-sm text-gray-500">
-          {discrepancias.length} filas · {anomaliasActivas.length} alertas activas
+      </div>
+
+      {/* F4: Filtros */}
+      <div className="flex gap-3 flex-wrap items-center mb-3">
+        <select
+          value={filtroCarrier}
+          onChange={(e) => setFiltroCarrier(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700"
+        >
+          <option value="todos">Todas las transportadoras</option>
+          {carriersUnicos.map((c) => (
+            <option key={c} value={c}>
+              {displayCarrier(c)}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={filtroEstado}
+          onChange={(e) => setFiltroEstado(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700"
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="pendiente">Pendiente de decisión</option>
+          <option value="anomalia">Con alerta</option>
+          <option value="resuelto">Ya resueltos</option>
+        </select>
+
+        {(filtroCarrier !== 'todos' || filtroEstado !== 'todos') && (
+          <button
+            onClick={() => {
+              setFiltroCarrier('todos');
+              setFiltroEstado('todos');
+            }}
+            className="text-xs text-gray-400 hover:text-gray-600 underline"
+          >
+            Limpiar filtros
+          </button>
+        )}
+
+        <span className="text-xs text-gray-400 ml-auto">
+          {discrepanciasFiltradas.length} de {discrepancias.length} envíos
         </span>
       </div>
 
@@ -610,7 +672,7 @@ function DiscrepancyTable({
             </tr>
           </thead>
           <tbody>
-            {discrepancias.map((d) => {
+            {discrepanciasFiltradas.map((d) => {
               const anomalia = anomaliesByGuia.get(d.guia);
               const hitlC2 = hitlMap.get(`c2::${d.guia}`);
               const hitlC7 = hitlMap.get(`c7::${d.guia}`);
@@ -1008,6 +1070,40 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
 // ============================================================================
 
 function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] }) {
+  // F5: Groq-powered cash forecast insight — hooks MUST be before early return
+  const [forecastAiText, setForecastAiText] = useState<string | null>(null);
+  const [forecastAiLoading, setForecastAiLoading] = useState(true);
+
+  useEffect(() => {
+    if (!forecast || forecast.carriers.length === 0) return;
+    const prompt = `Soy Andrés, vendedor de e-commerce en Colombia. Esta semana tengo COP $${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes de cobro COD con mis transportadoras.
+
+Situación por transportadora:
+${forecast.carriers
+  .sort((a, b) => b.totalPorCobrarCOP - a.totalPorCobrarCOP)
+  .map((c) => {
+    const atraso = c.lagMedianoActual - c.lagMedianoHistorico;
+    return `- ${displayCarrier(c.carrier)}: $${(c.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes en ${c.ordenesPendientes} órdenes. Normalmente paga en ${c.lagMedianoHistorico} días, ahora lleva ${c.lagMedianoActual} días → ${atraso > 0 ? `${atraso} días de atraso` : 'dentro del patrón'}. Semáforo: ${c.semafaro}.`;
+  })
+  .join('\n')}
+
+Dame 2-3 recomendaciones concretas y accionables para ESTA semana. Dime a cuál transportadora debo contactar primero y por qué, qué riesgo concreto tengo para mi flujo de caja, y si debo tomar alguna precaución antes del viernes. Sé directo y práctico. Sin tecnicismos. Máximo 4 oraciones.`;
+
+    fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setForecastAiText(data.text ?? forecast.resumenNarrado);
+      })
+      .catch(() => {
+        setForecastAiText(forecast.resumenNarrado);
+      })
+      .finally(() => setForecastAiLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
   if (!forecast || forecast.carriers.length === 0) {
     return (
       <div className="space-y-4">
@@ -1031,13 +1127,15 @@ function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] })
         Proyección de remesa por transportadora basada en lag histórico de pago.
       </p>
 
-      {/* AI Narrative */}
-      {forecast.resumenNarrado && (
-        <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-indigo-800 mb-2">🤖 Pronóstico narrado</h3>
-          <p className="text-sm text-indigo-700">{forecast.resumenNarrado}</p>
-        </div>
-      )}
+      {/* F5: AI Narrative con Groq */}
+      <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+        <h3 className="text-sm font-semibold text-indigo-800 mb-2">💡 Recomendación para esta semana</h3>
+        {forecastAiLoading ? (
+          <p className="text-sm text-indigo-400 italic">Generando recomendación...</p>
+        ) : (
+          <p className="text-sm text-indigo-700">{forecastAiText}</p>
+        )}
+      </div>
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1045,16 +1143,19 @@ function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] })
           label="Total por cobrar"
           value={`$${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M`}
           color="bg-yellow-50 border-yellow-200 text-yellow-800"
+          tooltip="Monto total pendiente de remesa de todas las transportadoras"
         />
         <KPICard
           label="Proyección de entrada"
           value={`$${(forecast.totalProyectadoCOP / 1_000_000).toFixed(1)}M`}
           color="bg-green-50 border-green-200 text-green-800"
+          tooltip="Monto que se espera recibir basado en el patrón histórico de pago"
         />
         <KPICard
           label="En riesgo de atraso"
           value={`$${(forecast.riesgoAtrasoCOP / 1_000_000).toFixed(1)}M`}
           color="bg-red-50 border-red-200 text-red-800"
+          tooltip="Monto de transportadoras que están pagando más lento que su patrón"
         />
       </div>
 
@@ -1075,7 +1176,7 @@ function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] })
           <tbody>
             {forecast.carriers.map((c) => (
               <tr key={c.carrier} className={`border-b border-gray-100 ${semaforoBg[c.semafaro] ?? ''}`}>
-                <td className="px-4 py-2 font-medium">{c.carrier}</td>
+                <td className="px-4 py-2 font-medium">{displayCarrier(c.carrier)}</td>
                 <td className="px-4 py-2 text-center text-lg">{semaforoIcon[c.semafaro]}</td>
                 <td className="px-4 py-2 text-right">{c.lagMedianoHistorico}d</td>
                 <td className="px-4 py-2 text-right">{c.lagMedianoActual}d</td>
