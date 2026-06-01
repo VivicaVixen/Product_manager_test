@@ -34,6 +34,36 @@ function displayCarrier(carrier: string): string {
   return CARRIER_DISPLAY_NAMES[carrier] ?? carrier;
 }
 
+// B8: Personas para demo multi-usuario
+const PERSONAS = [
+  {
+    id: 'andres',
+    nombre: 'Andrés García',
+    rol: 'Dropshipper · ~1.800 pedidos/mes',
+    iniciales: 'AG',
+  },
+  {
+    id: 'carolina',
+    nombre: 'Carolina Méndez',
+    rol: 'Cosméticos · ~600 pedidos/mes',
+    iniciales: 'CM',
+  },
+  {
+    id: 'tienda',
+    nombre: 'Tienda de Ropa BCN',
+    rol: 'Moda · ~120 pedidos/mes',
+    iniciales: 'TR',
+  },
+  {
+    id: 'enterprise',
+    nombre: 'MegaStore Colombia',
+    rol: 'Enterprise · ~9.000 pedidos/mes',
+    iniciales: 'MC',
+  },
+] as const;
+
+type PersonaId = (typeof PERSONAS)[number]['id'];
+
 // ============================================================================
 // Componentes
 // ============================================================================
@@ -44,6 +74,9 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'resumen' | 'discrepancias' | 'pronostico' | 'metricas'>('resumen');
   const [modoEvaluador, setModoEvaluador] = useState(false);
+  const [personaActiva, setPersonaActiva] = useState<PersonaId>('andres');
+  const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
+  const persona = PERSONAS.find((p) => p.id === personaActiva)!;
   const [hitlModal, setHitlModal] = useState<{
     guia: string;
     carrier: string;
@@ -52,11 +85,15 @@ export default function Dashboard() {
     data: ConciliacionResultado | AnomaliaResultado;
   } | null>(null);
 
-  const loadPipeline = useCallback(async () => {
+  // E2: AI summary state moved to Dashboard level for hero-first rendering
+  const [aiText, setAiText] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  const loadPipeline = useCallback(async (persona: string = personaActiva) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/pipeline');
+      const res = await fetch(`/api/pipeline?persona=${persona}`);
       const data: PipelineResponse = await res.json();
       if (data.success && data.state) {
         setState(data.state);
@@ -68,11 +105,58 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [personaActiva]);
 
   useEffect(() => {
     loadPipeline();
   }, [loadPipeline]);
+
+  // E2: Groq AI summary fetch at Dashboard level
+  useEffect(() => {
+    if (!state) return;
+    const { metrics, conciliaciones, anomalias } = state;
+    const discrepancias = conciliaciones.filter(
+      (c) => c.clase === 'discrepancia' || c.needs_hitl
+    );
+    const anomaliasActivas = anomalias.filter((a) => a.flag);
+    const prompt = `Datos de conciliación COD de esta semana para el resumen del vendedor:
+
+VOLUMEN Y AUTOMATIZACIÓN:
+- Total en juego: $${((metrics.total_confirmado_cop + metrics.total_pendiente_cop) / 1_000_000).toFixed(1)}M COP
+- Resuelto automáticamente: ${(metrics.tasa_conciliacion_automatica * 100).toFixed(0)}% (equivale a ~${((metrics.tasa_conciliacion_automatica * state.orders.length * 3) / 60).toFixed(1)} horas ahorradas vs. hacerlo en Excel)
+- Confirmado: $${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M | Pendiente de pago: $${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M
+
+INCIDENCIAS POR TRANSPORTADORA:
+- Total de envíos a revisar: ${discrepancias.length}
+${(() => {
+  const discByCarrier = new Map<string, number>();
+  for (const d of discrepancias) discByCarrier.set(d.carrier, (discByCarrier.get(d.carrier) ?? 0) + 1);
+  const carrierRanking = [...discByCarrier.entries()].sort((a, b) => b[1] - a[1]);
+  const top = carrierRanking[0];
+  if (!top) return '- Sin incidencias significativas';
+  const topPct = ((top[1] / discrepancias.length) * 100).toFixed(0);
+  const otros = carrierRanking.slice(1).map(([c, n]) => `${displayCarrier(c)} (${n})`).join(', ');
+  return `- ${displayCarrier(top[0])} concentra el ${topPct}% de las incidencias (${top[1]} casos)\n- Otras transportadoras con incidencias: ${otros || 'ninguna'}`;
+})()}
+
+ALERTAS DETECTADAS: ${anomaliasActivas.length} posibles cobros incorrectos marcados por el sistema.
+
+Redacta el resumen semanal en formato multi-bloque (2-4 bloques) con los datos anteriores. Incluye: estado general, análisis de la transportadora con más incidencias y qué acción concreta tomar esta semana.`;
+
+    fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        setAiText(data.text ?? generateAISummary(metrics, discrepancias, anomaliasActivas));
+      })
+      .catch(() => {
+        setAiText(generateAISummary(metrics, discrepancias, anomaliasActivas));
+      })
+      .finally(() => setAiLoading(false));
+  }, [state]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Block 1: handleSeedReset — solo llama loadPipeline() que hace GET fresco
   const handleSeedReset = async () => {
@@ -151,7 +235,7 @@ export default function Dashboard() {
           <p className="text-red-800 font-semibold mb-2">Error</p>
           <p className="text-red-600 text-sm">{error}</p>
           <button
-            onClick={loadPipeline}
+            onClick={() => loadPipeline()}
             className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
           >
             Reintentar
@@ -197,19 +281,58 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Usuario simulado + acciones */}
+          {/* B8: Persona switcher */}
           <div className="flex items-center gap-2">
-            <div className="hidden md:flex items-center gap-2 mr-2 text-sm text-gray-500">
-              <div className="w-7 h-7 rounded-full bg-embarca-50 flex items-center justify-center text-embarca-500 font-bold text-xs">
-                AG
-              </div>
-              <span>Andrés García</span>
-              <span className="text-gray-300">·</span>
-              <span className="text-xs text-gray-400">{state.orders.length} órdenes · {new Date().toLocaleDateString('es-CO')}</span>
+            <div className="relative hidden md:block">
+              <button
+                onClick={() => setPersonaMenuOpen((v) => !v)}
+                className="flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 transition-colors"
+              >
+                <div className="w-7 h-7 rounded-full bg-embarca-50 flex items-center justify-center text-embarca-500 font-bold text-xs">
+                  {persona.iniciales}
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-800 leading-none">{persona.nombre}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{persona.rol}</p>
+                </div>
+                <span className="text-gray-400 text-xs">▾</span>
+              </button>
+
+              {personaMenuOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-gray-200 rounded-xl shadow-lg z-50 py-1">
+                  <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-3 py-2">
+                    Cambiar usuario demo
+                  </p>
+                  {PERSONAS.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => {
+                        setPersonaActiva(p.id);
+                        setPersonaMenuOpen(false);
+                        loadPipeline(p.id);
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-gray-50 transition-colors ${
+                        p.id === personaActiva ? 'bg-embarca-50' : ''
+                      }`}
+                    >
+                      <div className="w-8 h-8 rounded-full bg-embarca-50 flex items-center justify-center text-embarca-500 font-bold text-xs flex-shrink-0">
+                        {p.iniciales}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{p.nombre}</p>
+                        <p className="text-xs text-gray-400">{p.rol}</p>
+                      </div>
+                      {p.id === personaActiva && (
+                        <span className="ml-auto text-embarca-500 text-xs">✓</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             <button
-              onClick={loadPipeline}
+              onClick={() => loadPipeline()}
               className="px-3 py-1.5 text-sm bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 text-gray-600 transition-colors"
               title="Recargar datos"
             >
@@ -288,12 +411,124 @@ export default function Dashboard() {
 
       {/* Tab Content */}
       <div className="max-w-7xl mx-auto px-6 py-6">
-        {activeTab === 'resumen' && (
-          <SummaryWidget
-            metrics={metrics}
-            discrepancias={discrepancias}
-            anomaliasActivas={anomaliasActivas}
-          />
+        {activeTab === 'resumen' && state && (
+          <div className="space-y-5">
+            {/* E2: 1. Resumen IA — PRIMERO (hero moment) */}
+            <div className="bg-embarca-light border border-embarca-500/20 rounded-xl p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-lg">✨</span>
+                <h2 className="text-base font-semibold text-embarca-dark">Tu semana en Embarca</h2>
+                {aiLoading && (
+                  <span className="text-xs text-embarca-500 animate-pulse ml-2">Analizando...</span>
+                )}
+              </div>
+              {aiLoading ? (
+                <p className="text-sm text-embarca-400 italic">Generando resumen...</p>
+              ) : (
+                <div>
+                  {aiText?.split('\n\n').filter(Boolean).map((bloque, i) => (
+                    <p key={i} className="text-sm text-embarca-700 leading-relaxed mt-2 first:mt-0">
+                      {bloque}
+                    </p>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* E2: 2. Badge HITL pendiente */}
+            {(() => {
+              const pendientes = discrepancias.filter(
+                (d) => d.needs_hitl && !hitlRecords.find((r) => r.guia === d.guia && r.decision)
+              );
+              if (pendientes.length === 0) return null;
+              return (
+                <div className="flex items-center justify-between bg-amber-50 border border-amber-200 rounded-xl px-5 py-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xl">⚡</span>
+                    <div>
+                      <p className="text-sm font-semibold text-amber-800">
+                        {pendientes.length} envío{pendientes.length > 1 ? 's' : ''} requieren tu decisión
+                      </p>
+                      <p className="text-xs text-amber-600 mt-0.5">
+                        Tiempo estimado: ~{pendientes.length * 2} minutos
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => setActiveTab('discrepancias')}
+                    className="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white text-sm font-medium rounded-lg transition-colors"
+                  >
+                    Revisar ahora →
+                  </button>
+                </div>
+              );
+            })()}
+
+            {/* E1: 3. North star — horas ahorradas */}
+            <div className="flex items-center gap-3 bg-embarca-light border border-embarca-500/20 rounded-xl px-5 py-3">
+              <span className="text-2xl">⏱️</span>
+              <div>
+                <p className="text-sm font-semibold text-embarca-dark">
+                  Esta semana el sistema procesó automáticamente el{' '}
+                  {(metrics.tasa_conciliacion_automatica * 100).toFixed(0)}% de tus envíos
+                </p>
+                <p className="text-xs text-embarca-500 mt-0.5">
+                  Equivalente a ~{((metrics.tasa_conciliacion_automatica * state.orders.length * 3) / 60).toFixed(1)} horas menos en Excel
+                  {' '}· vs. 3–6 h de conciliación manual semanal
+                </p>
+              </div>
+            </div>
+
+            {/* 4. KPI Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <KPICard
+                label="Total Confirmado"
+                value={`$${(metrics.total_confirmado_cop / 1_000_000).toFixed(1)}M`}
+                color="bg-green-50 border-green-200 text-green-800"
+                tooltip="Monto total de envíos cuya entrega y pago fueron verificados correctamente"
+              />
+              <KPICard
+                label="Total Pendiente"
+                value={`$${(metrics.total_pendiente_cop / 1_000_000).toFixed(1)}M`}
+                color="bg-amber-50 border-amber-200 text-amber-800"
+                tooltip="Envíos entregados cuyo pago aún no ha sido acreditado por la transportadora"
+              />
+              <KPICard
+                label="Envíos por revisar"
+                value={discrepancias.length.toString()}
+                color="bg-red-50 border-red-200 text-red-800"
+                tooltip="Casos donde el monto esperado y el reportado no coinciden — requieren tu decisión"
+              />
+              <KPICard
+                label="Alertas detectadas"
+                value={anomaliasActivas.length.toString()}
+                color="bg-embarca-50 border-embarca-500/20 text-embarca-700"
+                tooltip="Posibles cobros incorrectos detectados automáticamente por el sistema"
+              />
+            </div>
+
+            {/* 5. Quick stats */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <StatCard
+                label="Procesado automáticamente"
+                value={`${(metrics.tasa_conciliacion_automatica * 100).toFixed(1)}%`}
+                target="≥80%"
+                good={metrics.tasa_conciliacion_automatica >= 0.8}
+              />
+              <StatCard
+                label="Alertas de cobro detectadas"
+                value={`${(metrics.recall_anomalias * 100).toFixed(1)}%`}
+                target="≥90%"
+                good={metrics.recall_anomalias >= 0.9}
+              />
+              <StatCard
+                label="Envíos procesados sin error"
+                value={`${(metrics.tasa_normalizacion * 100).toFixed(1)}%`}
+                target="≥95%"
+                good={metrics.tasa_normalizacion >= 0.95}
+              />
+            </div>
+          </div>
         )}
         {activeTab === 'discrepancias' && (
           <DiscrepancyTable
@@ -559,8 +794,59 @@ function StatCard({
 }
 
 // ============================================================================
-// Discrepancy Table — Block 4: textos limpios
+// Discrepancy Table — Block 4: textos limpios, B9: tooltips + sort + guía search
 // ============================================================================
+
+// B9: Tooltips por columna
+const COLUMN_TOOLTIPS: Record<string, string> = {
+  'Guía': 'Número de identificación único del envío asignado por la transportadora.',
+  'Carrier': 'Transportadora que gestionó este envío (Interrapidísimo, Coordinadora, Servientrega o Envía).',
+  'Esperado': 'Monto en COP que Embarca esperaba recibir por este envío contraentrega (COD).',
+  'Reportado': 'Monto en COP que la transportadora reportó haber cobrado al destinatario.',
+  'Diferencia': 'Diferencia entre el monto esperado y el reportado. Positivo = transportadora cobró más. Negativo = cobró menos.',
+  'Clase': 'Clasificación automática: cobrado (monto coincide), pendiente (sin reporte de pago), discrepancia (montos no cuadran).',
+  'Alerta': 'Marcado por el sistema cuando la diferencia supera COP 50.000 o el 3% del valor esperado.',
+  'Estado': 'Pendiente = requiere tu decisión. Auto = resuelto automáticamente. Resuelto = ya tomaste una decisión.',
+  'Acción': 'Botones para tomar decisiones sobre este envío. "Decidir" = conciliación. "Revisar" = anomalía detectada.',
+};
+
+// B9: Header con tooltip + sort
+function ThWithTooltip({
+  label,
+  sortCol,
+  sortDir,
+  onSort,
+  sortable = false,
+}: {
+  label: string;
+  sortCol: string | null;
+  sortDir: 'asc' | 'desc';
+  onSort: (col: string) => void;
+  sortable?: boolean;
+}) {
+  const [show, setShow] = useState(false);
+  const tip = COLUMN_TOOLTIPS[label];
+  const isSorted = sortCol === label;
+  return (
+    <th
+      className={`text-left px-3 py-2 font-medium text-gray-600 text-xs relative ${sortable ? 'cursor-pointer select-none' : 'cursor-default'}`}
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+      onClick={() => sortable && onSort(label)}
+    >
+      <span className="flex items-center gap-1">
+        {label}
+        {tip && <span className="text-gray-300 text-[10px]">ⓘ</span>}
+        {isSorted && <span className="text-embarca-500 text-[10px]">{sortDir === 'asc' ? '▲' : '▼'}</span>}
+      </span>
+      {show && tip && (
+        <div className="absolute top-full left-0 mt-1 w-56 bg-gray-900 text-white text-xs rounded-lg p-2 z-50 leading-relaxed shadow-lg">
+          {tip}
+        </div>
+      )}
+    </th>
+  );
+}
 
 function DiscrepancyTable({
   discrepancias,
@@ -581,6 +867,10 @@ function DiscrepancyTable({
   // F4: Filtros
   const [filtroCarrier, setFiltroCarrier] = useState<string>('todos');
   const [filtroEstado, setFiltroEstado] = useState<string>('todos');
+  // B9: Filtro por guía + sort
+  const [filtroGuia, setFiltroGuia] = useState('');
+  const [sortCol, setSortCol] = useState<string | null>(null);
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
 
   const hitlMap = new Map<string, HitlRecord>();
   for (const hr of hitlRecords) {
@@ -604,7 +894,54 @@ function DiscrepancyTable({
       (filtroEstado === 'pendiente' && !resuelto && d.needs_hitl) ||
       (filtroEstado === 'anomalia' && !!anomalia) ||
       (filtroEstado === 'resuelto' && !!resuelto);
-    return passCarrier && passEstado;
+    // B9: filtro por guía
+    const passGuia = filtroGuia === '' || d.guia.toLowerCase().includes(filtroGuia.toLowerCase());
+    return passCarrier && passEstado && passGuia;
+  });
+
+  // B9: Sort
+  const handleSort = (col: string) => {
+    if (sortCol === col) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortCol(col);
+      setSortDir('asc');
+    }
+  };
+
+  const colMap: Record<string, string> = {
+    'Guía': 'guia',
+    'Carrier': 'carrier',
+    'Esperado': 'esperado',
+    'Reportado': 'reportado',
+    'Diferencia': 'diferencia',
+  };
+
+  const discrepanciasOrdenadas = [...discrepanciasFiltradas].sort((a, b) => {
+    if (!sortCol) return 0;
+    const key = colMap[sortCol];
+    if (!key) return 0;
+    let va: number | string = 0,
+      vb: number | string = 0;
+    if (key === 'guia') {
+      va = a.guia;
+      vb = b.guia;
+    } else if (key === 'carrier') {
+      va = a.carrier;
+      vb = b.carrier;
+    } else if (key === 'esperado') {
+      va = a.monto_esperado ?? 0;
+      vb = b.monto_esperado ?? 0;
+    } else if (key === 'reportado') {
+      va = a.monto_reportado ?? 0;
+      vb = b.monto_reportado ?? 0;
+    } else if (key === 'diferencia') {
+      va = a.diferencia_pesos ?? 0;
+      vb = b.diferencia_pesos ?? 0;
+    }
+    if (typeof va === 'string')
+      return sortDir === 'asc' ? va.localeCompare(vb as string) : (vb as string).localeCompare(va);
+    return sortDir === 'asc' ? va - (vb as number) : (vb as number) - (va as number);
   });
 
   return (
@@ -613,8 +950,16 @@ function DiscrepancyTable({
         <h2 className="text-lg font-semibold text-gray-900">Envíos que necesitan tu atención</h2>
       </div>
 
-      {/* F4: Filtros */}
+      {/* F4: Filtros + B9: búsqueda por guía */}
       <div className="flex gap-3 flex-wrap items-center mb-3">
+        {/* B9: Buscar por guía */}
+        <input
+          type="text"
+          placeholder="Buscar por guía..."
+          value={filtroGuia}
+          onChange={(e) => setFiltroGuia(e.target.value)}
+          className="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white text-gray-700 w-44 focus:outline-none focus:border-embarca-500"
+        />
         <select
           value={filtroCarrier}
           onChange={(e) => setFiltroCarrier(e.target.value)}
@@ -660,19 +1005,19 @@ function DiscrepancyTable({
         <table className="w-full text-sm min-w-[900px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Guía</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Carrier</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Esperado</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Reportado</th>
-              <th className="text-right px-3 py-2 font-medium text-gray-600 text-xs">Diferencia</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Clase</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Alerta</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Estado</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-600 text-xs">Acción</th>
+              <ThWithTooltip label="Guía" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
+              <ThWithTooltip label="Carrier" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
+              <ThWithTooltip label="Esperado" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
+              <ThWithTooltip label="Reportado" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
+              <ThWithTooltip label="Diferencia" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} sortable />
+              <ThWithTooltip label="Clase" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+              <ThWithTooltip label="Alerta" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+              <ThWithTooltip label="Estado" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
+              <ThWithTooltip label="Acción" sortCol={sortCol} sortDir={sortDir} onSort={handleSort} />
             </tr>
           </thead>
           <tbody>
-            {discrepanciasFiltradas.map((d) => {
+            {discrepanciasOrdenadas.map((d) => {
               const anomalia = anomaliesByGuia.get(d.guia);
               const hitlC2 = hitlMap.get(`c2::${d.guia}`);
               const hitlC7 = hitlMap.get(`c7::${d.guia}`);
@@ -773,7 +1118,7 @@ function DiscrepancyTable({
 }
 
 // ============================================================================
-// HITL Modal
+// HITL Modal — E3: Copiloto de discrepancias con Groq
 // ============================================================================
 
 function HitlModal({
@@ -793,6 +1138,43 @@ function HitlModal({
   onConfirm: (decision: HitlDecisionC2 | HitlDecisionC7, nota?: string) => void;
   onCancel: () => void;
 }) {
+  // E3: AI explanation state — hooks MUST be before conditional returns
+  const [aiExplanation, setAiExplanation] = useState<string | null>(null);
+  const [aiLoading, setAiLoading] = useState(true);
+
+  useEffect(() => {
+    const isC2 = tipo === 'c2';
+    const c2 = data as ConciliacionResultado;
+    const c7 = data as AnomaliaResultado;
+
+    const prompt = isC2
+      ? `Soy Andrés, vendedor de e-commerce. El sistema marcó la guía ${guia} de ${displayCarrier(carrier)} para revisión manual.
+Datos: monto esperado $${c2.monto_esperado?.toLocaleString('es-CO')}, monto reportado $${c2.monto_reportado?.toLocaleString('es-CO')}, diferencia ${c2.diferencia_pesos} COP (${c2.diferencia_pct}%), confianza del sistema: ${c2.confianza}%.
+Razón del sistema: ${razon}.
+Explícame en 2 oraciones por qué podría haber esta diferencia y qué me recomiendas hacer. Sé directo y práctico, sin tecnicismos.`
+      : `Soy Andrés, vendedor de e-commerce. El sistema detectó una posible anomalía en la guía ${guia} de ${displayCarrier(carrier)}.
+Datos: diferencia de ${c7.diferencia_pesos} COP (${c7.diferencia_pct}%), confianza del sistema: ${c7.confianza}%, razón: ${c7.razon}.
+Explícame en 2 oraciones por qué esto podría ser un problema y cuál de las tres opciones (confirmar, descartar, reclamar) me recomiendas y por qué. Sé directo.`;
+
+    fetch('/api/ai', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt }),
+    })
+      .then((r) => r.json())
+      .then((d) => setAiExplanation(d.text ?? null))
+      .catch(() => setAiExplanation(null))
+      .finally(() => setAiLoading(false));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const aiBlock = aiLoading ? (
+    <p className="text-xs text-blue-400 italic mb-4">💬 El sistema está analizando esta guía...</p>
+  ) : aiExplanation ? (
+    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+      <p className="text-xs font-medium text-blue-700 mb-1">💬 Análisis del sistema</p>
+      <p className="text-sm text-blue-800">{aiExplanation}</p>
+    </div>
+  ) : null;
   if (tipo === 'c2') {
     const c2 = data as ConciliacionResultado;
     return (
@@ -821,6 +1203,8 @@ function HitlModal({
             <strong>Confianza:</strong> {c2.confianza}%
           </p>
         </div>
+        {/* E3: AI explanation */}
+        {aiBlock}
         <p className="text-sm text-gray-500 mb-4">¿Cómo desea clasificar este envío?</p>
         <div className="flex gap-2 flex-wrap">
           <button
@@ -866,6 +1250,8 @@ function HitlModal({
           <strong>Confianza:</strong> {c7.confianza}%
         </p>
       </div>
+      {/* E3: AI explanation */}
+      {aiBlock}
       <p className="text-sm text-gray-500 mb-4">¿Qué acción desea tomar?</p>
       <div className="flex gap-2 flex-wrap">
         <button
@@ -1076,18 +1462,40 @@ function CashForecastPanel({ forecast }: { forecast: AppState['cashForecast'] })
 
   useEffect(() => {
     if (!forecast || forecast.carriers.length === 0) return;
-    const prompt = `Soy Andrés, vendedor de e-commerce en Colombia. Esta semana tengo COP $${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes de cobro COD con mis transportadoras.
+    const ordenados = [...forecast.carriers].sort(
+      (a, b) => b.totalPorCobrarCOP - a.totalPorCobrarCOP
+    );
+    const masProblematico = forecast.carriers.reduce((prev, curr) =>
+      curr.lagMedianoActual - curr.lagMedianoHistorico >
+      prev.lagMedianoActual - prev.lagMedianoHistorico
+        ? curr
+        : prev
+    );
+    const masConfiable = forecast.carriers.reduce((prev, curr) =>
+      curr.lagMedianoActual - curr.lagMedianoHistorico <
+      prev.lagMedianoActual - prev.lagMedianoHistorico
+        ? curr
+        : prev
+    );
 
-Situación por transportadora:
-${forecast.carriers
-  .sort((a, b) => b.totalPorCobrarCOP - a.totalPorCobrarCOP)
+    const prompt = `Análisis de flujo de caja COD para vendedor colombiano. Total pendiente de remesa: $${(forecast.totalPorCobrarCOP / 1_000_000).toFixed(1)}M COP.
+
+SITUACIÓN POR TRANSPORTADORA (de mayor a menor monto pendiente):
+${ordenados
   .map((c) => {
     const atraso = c.lagMedianoActual - c.lagMedianoHistorico;
-    return `- ${displayCarrier(c.carrier)}: $${(c.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes en ${c.ordenesPendientes} órdenes. Normalmente paga en ${c.lagMedianoHistorico} días, ahora lleva ${c.lagMedianoActual} días → ${atraso > 0 ? `${atraso} días de atraso` : 'dentro del patrón'}. Semáforo: ${c.semafaro}.`;
+    const atrasoTexto =
+      atraso > 0
+        ? `${atraso} días MÁS lento que su propio patrón`
+        : `dentro de su patrón histórico`;
+    return `- ${displayCarrier(c.carrier)}: $${(c.totalPorCobrarCOP / 1_000_000).toFixed(1)}M pendientes en ${c.ordenesPendientes} órdenes. Paga normalmente en ${c.lagMedianoHistorico} días, ahora lleva ${c.lagMedianoActual} días → ${atrasoTexto}. Semáforo: ${c.semafaro}.`;
   })
   .join('\n')}
 
-Dame 2-3 recomendaciones concretas y accionables para ESTA semana. Dime a cuál transportadora debo contactar primero y por qué, qué riesgo concreto tengo para mi flujo de caja, y si debo tomar alguna precaución antes del viernes. Sé directo y práctico. Sin tecnicismos. Máximo 4 oraciones.`;
+LA QUE MÁS PREOCUPA: ${displayCarrier(masProblematico.carrier)} — lleva ${masProblematico.lagMedianoActual - masProblematico.lagMedianoHistorico} días de retraso sobre su patrón histórico con $${(masProblematico.totalPorCobrarCOP / 1_000_000).toFixed(1)}M en juego.
+LA MÁS CONFIABLE ESTA SEMANA: ${displayCarrier(masConfiable.carrier)} — su comportamiento es el más cercano a su patrón histórico.
+
+Redacta un análisis en formato multi-bloque (3 bloques) con: (1) estado general del flujo de caja, (2) análisis de la transportadora que más preocupa esta semana y por qué, (3) recomendación concreta y accionable para esta semana (a quién llamar, qué revisar). Sé directo y específico con montos.`;
 
     fetch('/api/ai', {
       method: 'POST',
@@ -1127,13 +1535,19 @@ Dame 2-3 recomendaciones concretas y accionables para ESTA semana. Dime a cuál 
         Proyección de remesa por transportadora basada en lag histórico de pago.
       </p>
 
-      {/* F5: AI Narrative con Groq */}
+      {/* F5: AI Narrative con Groq — B10: multi-bloque */}
       <div className="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
         <h3 className="text-sm font-semibold text-indigo-800 mb-2">💡 Recomendación para esta semana</h3>
         {forecastAiLoading ? (
           <p className="text-sm text-indigo-400 italic">Generando recomendación...</p>
         ) : (
-          <p className="text-sm text-indigo-700">{forecastAiText}</p>
+          <div>
+            {forecastAiText?.split('\n\n').filter(Boolean).map((bloque, i) => (
+              <p key={i} className="text-sm text-indigo-700 leading-relaxed mt-2 first:mt-0">
+                {bloque}
+              </p>
+            ))}
+          </div>
         )}
       </div>
 
