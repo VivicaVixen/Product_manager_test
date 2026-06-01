@@ -39,6 +39,11 @@
 - **B9:** Tabla avanzada — tooltips hover en headers de columna, campo de búsqueda por número de guía, click en header ordena ascendente/descendente con flechas visuales.
 - **B10:** Prompts IA multi-bloque — system prompt actualizado con reglas de formato (2-4 bloques, emojis sobrios, máx 4 oraciones, acción concreta). Resumen semanal incluye análisis por carrier. Pronóstico de caja identifica carrier más problemático y más confiable. Renderizado multi-bloque con `split('\n\n')`.
 
+### Commit `d8ba049` — B11+B12+O3 (rebrand Faro, reporte PDF, click-outside)
+- **B11: Rebrand Faro** — Paleta cambia de azul (#1A56DB) a verde esmeralda (#059669). Logo SVG reemplazado por faro con rayos de luz. Textos: "Embarca — Conciliador Inteligente" → "faro by embarca", subtítulo → "claridad total sobre tu caja COD". Colores: tabs activos verdes, badges HITL en dorado, alertas en azul (no verde), fondo general `bg-embarca-surface`. Todos los `text-embarca-500` → `text-embarca-DEFAULT` (verde).
+- **B12: Reporte PDF profesional** — Botón "Exportar" ahora genera informe A4 en ventana nueva con template Faro: header con marca, KPIs en grid, tabla de envíos pendientes con badges, estado de transportadoras con semáforo, footer legal. Auto-ejecuta `window.print()` al cargar.
+- **O3: Click-outside persona** — Dropdown de persona se cierra al hacer clic fuera (usando `useRef` + `mousedown` listener).
+
 ---
 
 ## Sección 1 · Prototipo Funcionando
