@@ -1,19 +1,33 @@
 import type { BundleInput, AppState, AppMetrics } from "./types";
 
+// Imports estáticos — webpack los resuelve en build time.
+// Los 8 bundles del dataset.
+import bundle01 from "../../data/bundle_01.json";
+import bundle02 from "../../data/bundle_02.json";
+import bundle03 from "../../data/bundle_03.json";
+import bundle04 from "../../data/bundle_04.json";
+import bundle05 from "../../data/bundle_05.json";
+import bundle06 from "../../data/bundle_06.json";
+import bundle07 from "../../data/bundle_07.json";
+import bundle08 from "../../data/bundle_08.json";
+
+const ALL_BUNDLES: BundleInput[] = [
+  bundle01 as BundleInput,
+  bundle02 as BundleInput,
+  bundle03 as BundleInput,
+  bundle04 as BundleInput,
+  bundle05 as BundleInput,
+  bundle06 as BundleInput,
+  bundle07 as BundleInput,
+  bundle08 as BundleInput,
+];
+
 /**
  * Carga todos los bundles del dataset consolidado.
- * En producción real se leerían de /data; en serverless se importan directamente.
+ * En serverless los bundles ya están embebidos en el build.
  */
 export async function loadAllBundles(): Promise<BundleInput[]> {
-  const bundles: BundleInput[] = [];
-  const bundleCount = 8;
-
-  for (let i = 1; i <= bundleCount; i++) {
-    const mod = await import(`../../data/bundle_${String(i).padStart(2, "0")}.json`);
-    bundles.push(mod.default as BundleInput);
-  }
-
-  return bundles;
+  return ALL_BUNDLES;
 }
 
 /**
