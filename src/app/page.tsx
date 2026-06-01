@@ -365,7 +365,7 @@ function generateAISummary(
   if (metrics.tasa_conciliacion_automatica >= 0.7) {
     parts.push(
       `El sistema concilió automáticamente el ${autoRate}% de las transacciones, ` +
-      `liberando aproximadamente ${(totalCOP * 0.03 / 1000).toFixed(0)} horas de trabajo manual.`
+      `liberando aproximadamente ${Math.round((totalCOP / 1_000_000) * 0.07)} horas de trabajo manual.`
     );
   } else {
     parts.push(
