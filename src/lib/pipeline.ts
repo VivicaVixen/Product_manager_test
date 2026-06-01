@@ -126,17 +126,23 @@ function calculateMetrics(
   let totalPendienteCOP = 0;
   let totalDiscrepancias = 0;
 
+  // FIX C4-bis: coalescencia segura contra NaN. `null ?? x` funciona, pero
+  // `NaN ?? x` devuelve NaN (NaN no es nullish) → un solo monto NaN envenenaba
+  // TODO el total ($0). num() trata null/undefined/NaN como 0 de forma uniforme.
+  const num = (v: number | null | undefined): number =>
+    typeof v === 'number' && Number.isFinite(v) ? v : 0;
+
   for (const c of conciliaciones) {
     switch (c.clase) {
       case 'cobrado':
-        totalConfirmadoCOP += c.monto_reportado ?? c.monto_esperado ?? 0;
+        totalConfirmadoCOP += num(c.monto_reportado) || num(c.monto_esperado);
         break;
       case 'pendiente_acreditacion':
-        totalPendienteCOP += c.monto_esperado ?? 0;
+        totalPendienteCOP += num(c.monto_esperado);
         break;
       case 'discrepancia':
         totalDiscrepancias++;
-        totalPendienteCOP += c.monto_esperado ?? 0;
+        totalPendienteCOP += num(c.monto_esperado);
         break;
     }
   }

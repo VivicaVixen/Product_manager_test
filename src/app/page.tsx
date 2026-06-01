@@ -13,6 +13,30 @@ import type {
 import { GLOSARIO, type ClaseKey, type EstadoKey } from '@/lib/glosario_estados';
 
 // ============================================================================
+// M1: Imports para reclamaciones (ADITIVO — no tocar imports existentes)
+// ============================================================================
+import { FLAGS } from '@/lib/flags';
+import type { Reclamacion } from '@/lib/types_reclamacion';
+import ReclamacionesPanel from '@/components/ReclamacionesPanel';
+// ============================================================================
+// M2: Imports para predicción SLA (ADITIVO)
+// ============================================================================
+import PrediccionSLAPanel from '@/components/PrediccionSLAPanel';
+// ============================================================================
+// M5: Imports para recall loop (ADITIVO)
+// ============================================================================
+import CalibracionPanel from '@/components/CalibracionPanel';
+import { loadFeedback, saveFeedback, type HITLFeedback } from '@/lib/hitl_feedback';
+import { recalibrateAll, type CalibracionResultado } from '@/lib/threshold_calibrator';
+// ============================================================================
+// M4: Imports para auto-mapeo TCC (ADITIVO)
+// ============================================================================
+import AutomapModal from '@/components/AutomapModal';
+import { getTccRawSample, SCHEMA_CANONICO } from '@/lib/tcc_reader';
+import type { Automapping } from '@/lib/automap_apply';
+import type { GuiaNormalizada } from '@/lib/types';
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -73,7 +97,7 @@ export default function Dashboard() {
   const [state, setState] = useState<AppState | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'resumen' | 'discrepancias' | 'pronostico' | 'metricas'>('resumen');
+  const [activeTab, setActiveTab] = useState<'resumen' | 'discrepancias' | 'pronostico' | 'reclamaciones' | 'prediccion' | 'calibracion' | 'metricas'>('resumen');
   const [modoEvaluador, setModoEvaluador] = useState(false);
   const [personaActiva, setPersonaActiva] = useState<PersonaId>('andres');
   const [personaMenuOpen, setPersonaMenuOpen] = useState(false);
@@ -87,9 +111,41 @@ export default function Dashboard() {
     data: ConciliacionResultado | AnomaliaResultado;
   } | null>(null);
 
+  // ========================================================================
+  // M1: Estado de reclamaciones (ADITIVO — no tocar estado existente)
+  // ========================================================================
+  const [reclamaciones, setReclamaciones] = useState<Reclamacion[]>([]);
+  const [reclamacionGenerating, setReclamacionGenerating] = useState<string | null>(null); // guia being generated
+
+  // ========================================================================
+  // M5: Estado de feedback y calibración (ADITIVO)
+  // ========================================================================
+  const [hitlFeedback, setHitlFeedback] = useState<HITLFeedback[]>([]);
+  const [calibraciones, setCalibraciones] = useState<CalibracionResultado[]>([]);
+  // M5.4: Override opcional de umbral por carrier (NO modifica c7_anomalies.ts)
+  const [thresholdOverrides, setThresholdOverrides] = useState<Record<string, number>>({});
+
+  // ========================================================================
+  // M4: Estado de auto-mapeo TCC (ADITIVO)
+  // ========================================================================
+  const [automapModalOpen, setAutomapModalOpen] = useState(false);
+  const [automapeadas, setAutomapeadas] = useState<GuiaNormalizada[]>([]);
+  const [automapCount, setAutomapCount] = useState(0);
+
   // E2: AI summary state moved to Dashboard level for hero-first rendering
   const [aiText, setAiText] = useState<string | null>(null);
   const [aiLoading, setAiLoading] = useState(true);
+
+  // M5: Cargar feedback acumulado desde localStorage al montar
+  useEffect(() => {
+    if (FLAGS.M5_recall_loop) {
+      const stored = loadFeedback();
+      setHitlFeedback(stored);
+      if (stored.length > 0) {
+        setCalibraciones(recalibrateAll(stored));
+      }
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadPipeline = useCallback(async (persona: string = personaActiva) => {
     setLoading(true);
@@ -225,8 +281,138 @@ Redacta 2-3 bloques cortos respondiendo: (1) ¿cuánto le deben y cuánto está 
     if (data.success && data.state) {
       setState(data.state);
     }
+
+    // M1.4: Si la decisión es "reclamar" y el flag está activo → generar reclamación
+    if (decision === 'reclamar' && FLAGS.M1_reclamaciones) {
+      // Buscar datos de la fila para la reclamación
+      const conc = conciliaciones.find((c) => c.guia === guia);
+      const anom = anomalias.find((a) => a.guia === guia);
+      const montoEsperado = conc?.monto_esperado ?? 0;
+      const montoReportado = conc?.monto_reportado ?? anom?.diferencia_pesos ?? null;
+      const diferencia = conc?.diferencia_pesos ?? anom?.diferencia_pesos ?? 0;
+      // Buscar fecha en guias normalizadas
+      const guiaNorm = state?.guiasNormalizadas.find((g) => g.guia_id === guia);
+      const fecha = guiaNorm?.fecha ?? new Date().toISOString().split('T')[0];
+      await generarReclamacion(guia, carrier, montoEsperado, montoReportado, Math.abs(diferencia), fecha);
+    }
+
+    // M5.1: Registrar feedback HITL para recalibración (ADITIVO)
+    if (FLAGS.M5_recall_loop && tipo === 'c7') {
+      const anomalia = anomalias.find((a) => a.guia === guia);
+      const diferencia = anomalia?.diferencia_pesos ?? 0;
+      const feedbackDecision: HITLFeedback = {
+        guia,
+        carrier: carrier as CarrierId,
+        diferencia,
+        decision: decision === 'confirmar_discrepancia' ? 'confirmar' : 'descartar',
+        timestamp: new Date().toISOString(),
+      };
+      const updated = saveFeedback(feedbackDecision);
+      setHitlFeedback(updated);
+      setCalibraciones(recalibrateAll(updated));
+    }
+
     setHitlModal(null);
   };
+
+  // ========================================================================
+  // M1.4: Generar reclamación desde HITL (ADITIVO — enganche en rama "reclamar")
+  // ========================================================================
+  const generarReclamacion = useCallback(async (
+    guia: string,
+    carrier: string,
+    montoEsperado: number,
+    montoReportado: number | null,
+    diferencia: number,
+    fecha: string
+  ) => {
+    if (!FLAGS.M1_reclamaciones) return;
+    setReclamacionGenerating(guia);
+
+    const id = `rec_${guia}`;
+    const carrierLegible = displayCarrier(carrier);
+    const fuente = `Reporte ${carrierLegible} · ${fecha}`;
+
+    const prompt = `Redacta reclamación formal para ${carrierLegible}:
+Guía: ${guia}
+Monto esperado: $${montoEsperado.toLocaleString('es-CO')} COP
+Monto reportado: ${montoReportado !== null ? '$' + montoReportado.toLocaleString('es-CO') + ' COP' : 'no reportado'}
+Diferencia: $${diferencia.toLocaleString('es-CO')} COP
+Fecha: ${fecha}
+Motivo: discrepancia en el monto reportado`;
+
+    try {
+      const res = await fetch('/api/ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, mode: 'reclamacion', payload: { guia, carrier, montoEsperado, montoReportado, diferencia, fecha } }),
+      });
+      const data = await res.json();
+      const texto = data.text ?? '';
+
+      const nueva: Reclamacion = {
+        id,
+        guia,
+        carrier: carrier as CarrierId,
+        carrierLegible,
+        montoEsperado,
+        montoReportado,
+        diferencia,
+        fecha,
+        motivo: 'discrepancia_monto',
+        estado: 'borrador',
+        textoGenerado: texto,
+        fuente,
+        creadaEn: new Date().toISOString(),
+      };
+      setReclamaciones((prev) => [...prev, nueva]);
+    } catch {
+      // Fallback ya viene del backend, pero si falla la llamada:
+      const nueva: Reclamacion = {
+        id,
+        guia,
+        carrier: carrier as CarrierId,
+        carrierLegible,
+        montoEsperado,
+        montoReportado,
+        diferencia,
+        fecha,
+        motivo: 'discrepancia_monto',
+        estado: 'borrador',
+        textoGenerado: '',
+        fuente,
+        creadaEn: new Date().toISOString(),
+      };
+      setReclamaciones((prev) => [...prev, nueva]);
+    } finally {
+      setReclamacionGenerating(null);
+    }
+  }, []);
+
+  // M1.5: Handlers para actualizar reclamaciones
+  const handleUpdateReclamacionEstado = useCallback((id: string, estado: Reclamacion['estado']) => {
+    setReclamaciones((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, estado } : r))
+    );
+  }, []);
+
+  const handleUpdateReclamacionTexto = useCallback((id: string, texto: string) => {
+    setReclamaciones((prev) =>
+      prev.map((r) => (r.id === id ? { ...r, textoGenerado: texto } : r))
+    );
+  }, []);
+
+  // M5.4: Handler para aplicar umbral sugerido (solo override en cliente)
+  const handleAplicarUmbral = useCallback((carrier: string, umbral: number) => {
+    setThresholdOverrides((prev) => ({ ...prev, [carrier]: umbral }));
+  }, []);
+
+  // M4.4: Handler para aprobar mapeo TCC
+  const handleAutomapApprove = useCallback((mapping: Automapping, filasMapeadas: GuiaNormalizada[]) => {
+    setAutomapeadas(filasMapeadas);
+    setAutomapCount(filasMapeadas.length);
+    setAutomapModalOpen(false);
+  }, []);
 
   // ========================================================================
   // Render
@@ -281,10 +467,21 @@ Redacta 2-3 bloques cortos respondiendo: (1) ¿cuánto le deben y cuánto está 
   const anomaliasActivas = anomalias.filter((a) => a.flag);
 
   // Block 4: Tabs dinámicos según modo
+  // M1.5: Tab condicional de reclamaciones (ADITIVO)
+  // M2.4: Tab condicional de predicción SLA (ADITIVO)
   const tabs = [
     { key: 'resumen' as const, label: '🏠 Resumen' },
     { key: 'discrepancias' as const, label: `📋 Mis envíos (${discrepancias.length})` },
     { key: 'pronostico' as const, label: '💰 Pronóstico de Caja' },
+    ...(FLAGS.M1_reclamaciones
+      ? [{ key: 'reclamaciones' as const, label: `📨 Reclamaciones (${reclamaciones.length})` }]
+      : []),
+    ...(FLAGS.M2_prediccion_sla
+      ? [{ key: 'prediccion' as const, label: '🔮 Predicción SLA' }]
+      : []),
+    ...(FLAGS.M5_recall_loop && modoEvaluador
+      ? [{ key: 'calibracion' as const, label: '🎯 Calibración C7' }]
+      : []),
     ...(modoEvaluador
       ? [{ key: 'metricas' as const, label: '🔬 Panel Técnico' }]
       : []),
@@ -407,6 +604,15 @@ Redacta 2-3 bloques cortos respondiendo: (1) ¿cuánto le deben y cuánto está 
                     </li>
                   ))}
                 </ul>
+                {/* M4.4: Botón de sugerir mapeo (solo si flag ON y en evaluador) */}
+                {FLAGS.M4_automapeo && c1Alerts.some((a) => a.fuente === 'tcc') && (
+                  <button
+                    onClick={() => setAutomapModalOpen(true)}
+                    className="mt-2 px-3 py-1.5 text-xs bg-embarca-DEFAULT text-white rounded-lg hover:bg-embarca-dark"
+                  >
+                    ✨ Sugerir mapeo (IA)
+                  </button>
+                )}
               </details>
             )}
           </div>
@@ -572,7 +778,28 @@ Redacta 2-3 bloques cortos respondiendo: (1) ¿cuánto le deben y cuánto está 
         {activeTab === 'pronostico' && (
           <CashForecastPanel forecast={state.cashForecast} />
         )}
-        {activeTab === 'metricas' && modoEvaluador && <MetricsPanel metrics={metrics} />}
+        {/* M1.5: Tab de reclamaciones (ADITIVO) */}
+        {activeTab === 'reclamaciones' && FLAGS.M1_reclamaciones && (
+          <ReclamacionesPanel
+            reclamaciones={reclamaciones}
+            onUpdateEstado={handleUpdateReclamacionEstado}
+            onUpdateTexto={handleUpdateReclamacionTexto}
+          />
+        )}
+        {/* M2.4: Tab de predicción SLA (ADITIVO) */}
+        {activeTab === 'prediccion' && FLAGS.M2_prediccion_sla && (
+          <PrediccionSLAPanel />
+        )}
+        {/* M5.3: Tab de calibración C7 (ADITIVO) */}
+        {activeTab === 'calibracion' && FLAGS.M5_recall_loop && modoEvaluador && (
+          <CalibracionPanel
+            calibraciones={calibraciones}
+            onAplicar={handleAplicarUmbral}
+          />
+        )}
+        {activeTab === 'metricas' && modoEvaluador && (
+          <MetricsPanel metrics={metrics} reclamaciones={reclamaciones} automapCount={automapCount} />
+        )}
       </div>
 
       {/* HITL Modal */}
@@ -585,6 +812,30 @@ Redacta 2-3 bloques cortos respondiendo: (1) ¿cuánto le deben y cuánto está 
           onCancel={() => setHitlModal(null)}
         />
       )}
+
+      {/* M4.4: Automap Modal (ADITIVO) */}
+      {automapModalOpen && FLAGS.M4_automapeo && modoEvaluador && state && (() => {
+        const tccAlertLines = c1Alerts.filter((a) => a.fuente === 'tcc').map((a) => a.guia_o_linea);
+        const tccRaw = tccAlertLines.join('\n');
+        const sample = getTccRawSample(
+          {
+            interrapidisimo_csv: '',
+            coordinadora_csv: '',
+            servientrega_jsonl: '',
+            envia_csv: '',
+            tcc_desconocido_raw: tccRaw,
+          },
+          c1Alerts
+        );
+        return (
+          <AutomapModal
+            tccHeaders={sample.headers}
+            tccRows={sample.rows}
+            onApprove={handleAutomapApprove}
+            onCancel={() => setAutomapModalOpen(false)}
+          />
+        );
+      })()}
     </main>
   );
 }
@@ -1360,7 +1611,7 @@ function ModalOverlay({
 // Metrics Panel — Block 4: nota de Vista Evaluador
 // ============================================================================
 
-function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
+function MetricsPanel({ metrics, reclamaciones, automapCount }: { metrics: AppState['metrics']; reclamaciones?: Reclamacion[]; automapCount?: number }) {
   type MetricRow = {
     label: string;
     value: number;
@@ -1433,6 +1684,44 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
     },
   ];
 
+  // M1.6: Métricas de reclamaciones (ADITIVO)
+  const reclamacionRows: { label: string; value: number; target: number | null; format: 'pct' | 'cop' | 'count'; invert?: boolean }[] = FLAGS.M1_reclamaciones && reclamaciones && reclamaciones.length > 0
+    ? [
+        {
+          label: 'Reclamaciones generadas',
+          value: reclamaciones.length,
+          target: null,
+          format: 'count' as const,
+        },
+        {
+          label: '% con fuente trazable',
+          value: 1.0,
+          target: 1.0,
+          format: 'pct' as const,
+        },
+        {
+          label: 'COP en disputa gestionados',
+          value: reclamaciones
+            .filter((r) => r.estado === 'revisada' || r.estado === 'enviada')
+            .reduce((sum, r) => sum + r.diferencia, 0),
+          target: null,
+          format: 'cop' as const,
+        },
+      ]
+    : [];
+
+  // M4.5: Métrica de auto-mapeo (ADITIVO)
+  const automapRows: { label: string; value: number; target: number | null; format: 'pct' | 'cop' | 'count'; invert?: boolean }[] = FLAGS.M4_automapeo && automapCount && automapCount > 0
+    ? [
+        {
+          label: 'Formatos desconocidos auto-mapeados',
+          value: automapCount,
+          target: null,
+          format: 'count' as const,
+        },
+      ]
+    : [];
+
   return (
     <div className="space-y-4">
       <h2 className="text-lg font-semibold text-gray-900">Panel de Métricas</h2>
@@ -1443,6 +1732,13 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
         <p className="text-xs text-embarca-dark mt-1">
           &quot;Si esto estuviera en producción mediría X; en el prototipo mido Y (proxy) contra el ground truth del dataset sintético.&quot;
         </p>
+        {/* M2.5: Conexión narrativa de cascada */}
+        {FLAGS.M2_prediccion_sla && (
+          <p className="text-xs text-embarca-dark mt-2 border-t border-embarca-DEFAULT/20 pt-2">
+            🔗 <strong>Apuesta Carolina (M2):</strong> La capa de predicción SLA se alimenta de los datos que C1 ya normaliza —
+            es la apuesta #3 (Carolina) montada sobre la apuesta #1 sin reconstruir datos.
+          </p>
+        )}
       </div>
 
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -1456,7 +1752,7 @@ function MetricsPanel({ metrics }: { metrics: AppState['metrics'] }) {
             </tr>
           </thead>
           <tbody>
-            {metricRows.map((row, i) => {
+            {[...metricRows, ...reclamacionRows, ...automapRows].map((row, i) => {
               let displayValue = '';
               let isGood = true;
 

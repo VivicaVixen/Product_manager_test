@@ -3,70 +3,59 @@
  */
 
 /**
- * Parsea un monto en COP desde distintos formatos:
- * - "85.000" (miles con punto)
- * - "$ 85.000" (con símbolo y espacio)
- * - "85000.00" (decimal con punto)
- * - 85000 (número crudo)
- * - "" (vacío → null)
- * Retorna entero COP o null.
+ * Parsea un monto en COP desde distintos formatos. NUNCA retorna NaN.
  */
 export function parseMontoCOP(raw: string | number): number | null {
   if (raw === null || raw === undefined) return null;
-  if (typeof raw === 'number') return Math.round(raw);
+  if (typeof raw === 'number') return Number.isFinite(raw) ? Math.round(raw) : null;
 
   let str = raw.trim();
   if (str === '') return null;
 
-  // Quitar símbolo de moneda y espacios
-  str = str.replace(/^\$\s*/, '');
+  // FIX C4-bis: el CSV de Envía entrega el monto ENTRECOMILLADO ("$ 85.000").
+  // El split por coma conservaba las comillas -> parseInt('"$ 85000"') = NaN,
+  // que envenenaba la suma del total ($0). Limpiamos comillas, $ y espacios
+  // antes de parsear y garantizamos no-NaN.
+  str = str.replace(/^["']+|["']+$/g, '').trim();
+  str = str.replace(/\$/g, '').replace(/\s+/g, '');
 
   if (str === '') return null;
 
-  // Detectar formato: si tiene punto decimal (.00) → es decimal
-  // Si tiene punto como separador de miles (85.000) → quitar puntos
+  let n: number;
   if (str.includes('.')) {
     const parts = str.split('.');
-    // Si la parte después del último punto tiene exactamente 2 dígitos → es decimal
     if (parts.length >= 2 && parts[parts.length - 1].length === 2) {
-      // Formato decimal: "85000.00"
-      return Math.round(parseFloat(str.replace(/,/g, '')));
+      n = Math.round(parseFloat(str.replace(/,/g, '')));
+    } else {
+      n = parseInt(str.replace(/\./g, ''), 10);
     }
-    // Formato miles con punto: "85.000"
-    return parseInt(str.replace(/\./g, ''), 10);
+  } else {
+    n = parseInt(str.replace(/,/g, ''), 10);
   }
 
-  // Sin punto: entero directo
-  return parseInt(str, 10);
+  return Number.isFinite(n) ? n : null;
 }
 
 /**
  * Parsea una fecha desde distintos formatos a ISO YYYY-MM-DD.
- * - "DD/MM/YYYY" (Interrapidisimo)
- * - "YYYY-MM-DD" (Coordinadora, Servientrega)
- * - "DD-MM-YYYY" (Envía)
- * - "" (vacío → null)
  */
 export function parseFecha(raw: string): string | null {
   if (!raw || raw.trim() === '') return null;
 
-  const str = raw.trim();
+  const str = raw.trim().replace(/^["']+|["']+$/g, '').trim();
 
-  // DD/MM/YYYY
   const ddmmyyyy = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (ddmmyyyy) {
     const [, d, m, y] = ddmmyyyy;
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  // YYYY-MM-DD (ya ISO)
   const isoyyyy = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
   if (isoyyyy) {
     const [, y, m, d] = isoyyyy;
     return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
   }
 
-  // DD-MM-YYYY
   const ddmmmyyyy = str.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
   if (ddmmmyyyy) {
     const [, d, m, y] = ddmmmyyyy;
